@@ -110,6 +110,9 @@
     "tweetnacl": "^1.0.3"
   },
   "devDependencies": {
+    "@babel/plugin-transform-class-properties": "^7.29.7",
+    "@babel/plugin-transform-private-methods": "^7.29.7",
+    "@babel/plugin-transform-private-property-in-object": "^7.29.7",
     "@react-native-community/cli": "^20.2.0",
     "@types/react": "~19.2.14",
     "@types/react-native-background-timer": "^2.0.2",
