@@ -6,6 +6,7 @@
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "userInterfaceStyle": "dark",
+    "jsEngine": "jsc",
     "splash": {
       "image": "./assets/images/splash.png",
       "resizeMode": "contain",
@@ -17,6 +18,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.seekerbeat.radio",
+      "jsEngine": "jsc",
       "infoPlist": {
         "UIBackgroundModes": [
           "audio",
@@ -26,6 +28,7 @@
       }
     },
     "android": {
+      "jsEngine": "jsc",
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#0A0A0C"
