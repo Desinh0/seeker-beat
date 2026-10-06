@@ -4,7 +4,7 @@
   },
   "build": {
     "dapp-store": {
-      "node": "22.x",
+      "node": "22.18.0",
       "developmentClient": false,
       "distribution": "store",
       "android": {
