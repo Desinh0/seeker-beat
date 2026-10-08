@@ -1,8 +1,7 @@
-import TrackPlayer, { Event } from 'react-native-track-player';
+const TrackPlayer = require('react-native-track-player');
 
-module.exports = async function() {
-  // Обработка событий с кнопок в шторке и гарнитуры
-  TrackPlayer.addEventListener(Event.RemotePlay, () => TrackPlayer.play());
-  TrackPlayer.addEventListener(Event.RemotePause, () => TrackPlayer.pause());
-  TrackPlayer.addEventListener(Event.RemoteStop, () => TrackPlayer.destroy());
+module.exports = async function () {
+  TrackPlayer.addEventListener('remote-play', () => TrackPlayer.play());
+  TrackPlayer.addEventListener('remote-pause', () => TrackPlayer.pause());
+  TrackPlayer.addEventListener('remote-stop', () => TrackPlayer.stop());
 };

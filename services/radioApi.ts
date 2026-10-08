@@ -6,7 +6,6 @@ export interface Station {
   tags: string;
 }
 
-// Список надежных HTTPS-зеркал Radio Browser API
 const API_MIRRORS = [
   'https://de1.api.radio-browser.info',
   'https://nl1.api.radio-browser.info',
@@ -14,7 +13,6 @@ const API_MIRRORS = [
   'https://all.api.radio-browser.info',
 ];
 
-// Вспомогательная функция перебора зеркал
 async function fetchWithFallback(path: string): Promise<any> {
   for (const baseUrl of API_MIRRORS) {
     try {
@@ -35,16 +33,22 @@ async function fetchWithFallback(path: string): Promise<any> {
   throw new Error('All Radio Browser API mirrors failed');
 }
 
+const mapStation = (item: any): Station => ({
+  id: item.stationuuid || item.id,
+  name: item.name,
+  url: item.url_resolved || item.url,
+  favicon: item.favicon || '',
+  tags: item.tags || 'AUDIOBOOK',
+});
+
 export const fetchRadioStations = async (query: string): Promise<Station[]> => {
   try {
     const encoded = encodeURIComponent(query.trim());
-    
-    // 1. Поиск по названию
+
     let data = await fetchWithFallback(
       `/json/stations/search?name=${encoded}&limit=100&hidebroken=true&order=clicktrend&reverse=true`
     );
 
-    // 2. Если по названию нашлось мало станций, дополняем поиском по тегам/жанрам
     if (data.length < 25) {
       try {
         const tagData = await fetchWithFallback(
@@ -56,46 +60,29 @@ export const fetchRadioStations = async (query: string): Promise<Station[]> => {
             data.push(item);
           }
         }
-      } catch (e) {
-        // Игнорируем сбой доп. поиска
-      }
+      } catch (e) {}
     }
 
-    return data.map((item: any) => ({
-      id: item.stationuuid,
-      name: item.name,
-      url: item.url_resolved || item.url,
-      favicon: item.favicon,
-      tags: item.tags,
-    }));
+    return data.map(mapStation).filter((s: Station) => !!s.url);
   } catch (error) {
     console.error('Error fetching radio stations:', error);
     return [];
   }
 };
 
-// === НОВАЯ ФУНКЦИЯ ДЛЯ ГЛОБАЛЬНОГО ПОИСКА ===
 export const searchGlobalStations = async (query: string): Promise<Station[]> => {
   try {
     const encoded = encodeURIComponent(query.trim());
-    // Глобальный поиск ищет станции по названию по всему миру (лимит увеличен до 200)
     const data = await fetchWithFallback(
       `/json/stations/search?name=${encoded}&limit=200&hidebroken=true&order=clicktrend&reverse=true`
     );
-    
-    return data.map((item: any) => ({
-      id: item.stationuuid,
-      name: item.name,
-      url: item.url_resolved || item.url,
-      favicon: item.favicon,
-      tags: item.tags
-    }));
+
+    return data.map(mapStation).filter((s: Station) => !!s.url);
   } catch (error) {
-    console.error("Global search error:", error);
+    console.error('Global search error:', error);
     return [];
   }
 };
-// ===========================================
 
 export const fetchStationsByCountry = async (countryCode: string): Promise<Station[]> => {
   try {
@@ -103,45 +90,85 @@ export const fetchStationsByCountry = async (countryCode: string): Promise<Stati
       `/json/stations/bycountrycodeexact/${countryCode.toLowerCase()}?limit=100&hidebroken=true&order=clicktrend&reverse=true`
     );
 
-    return data.map((item: any) => ({
-      id: item.stationuuid,
-      name: item.name,
-      url: item.url_resolved || item.url,
-      favicon: item.favicon,
-      tags: item.tags,
-    }));
+    return data.map(mapStation).filter((s: Station) => !!s.url);
   } catch (error) {
     console.error('Error fetching stations by country:', error);
     return [];
   }
 };
 
+const CURATED_AUDIOBOOKS: Record<string, Station[]> = {
+  russian: [
+    { id: 'book_radio', name: 'Радио Книга', url: 'http://bookradio.hostingradio.ru:8069/fm', favicon: '', tags: 'AUDIOBOOK,RU' },
+    { id: 'mds_ru', name: 'МДС - Модель Для Сборки', url: 'https://mds.hostingradio.ru:8043/mds128.mp3', favicon: 'https://mds.ru/wp-content/uploads/2020/04/mds_logo.png', tags: 'AUDIOBOOK,SCIFI,RU' },
+    { id: 'zvezda_ru', name: 'Радио Звезда', url: 'https://radio.mediacdn.ru/radio/zvezda/zvezda_96', favicon: '', tags: 'AUDIOBOOK,RU' },
+    { id: 'fantastika_ru', name: 'Радио Фантастики', url: 'https://listen9.myradio24.com/55699', favicon: '', tags: 'AUDIOBOOK,SCIFI,RU' },
+  ],
+  english: [
+    { id: 'audiobook_radio', name: 'AudioBook Radio', url: 'https://audiobookradio.out.airtime.pro/audiobookradio_a', favicon: '', tags: 'AUDIOBOOK,EN' },
+    { id: 'alive_books', name: '95alive Audio Book Library', url: 'http://95alive.net:8020/radio.mp3', favicon: '', tags: 'AUDIOBOOK,EN' },
+    { id: 'history_radio', name: 'History Radio', url: 'https://cast1.asurahosting.com/proxy/historyr/stream.mp3', favicon: '', tags: 'AUDIOBOOK,HISTORY,EN' },
+  ],
+  ukrainian: [],
+  german: [],
+  spanish: [],
+  french: [],
+  polish: [],
+  italian: [
+    { id: 'wombat_it', name: 'Radio Wombat', url: 'http://s.streampunk.cc/wombat.ogg', favicon: '', tags: 'AUDIOBOOK,IT' },
+  ],
+};
+
+const LANG_ALIASES: Record<string, string[]> = {
+  russian: ['russian', 'рус'],
+  english: ['english'],
+  ukrainian: ['ukrainian', 'україн'],
+  german: ['german', 'deutsch'],
+  spanish: ['spanish', 'español', 'castellano'],
+  french: ['french', 'français', 'francais'],
+  polish: ['polish', 'polski'],
+  italian: ['italian', 'italiano'],
+};
+
+const matchesLanguage = (language: string, langQuery: string) => {
+  const value = (language || '').toLowerCase();
+  if (!value) return false;
+  const aliases = LANG_ALIASES[langQuery] || [langQuery];
+  return aliases.some((alias) => value.includes(alias));
+};
+
 export const fetchAudiobooksByLang = async (langQuery: string): Promise<Station[]> => {
-  try {
-    const lang = langQuery.toLowerCase();
-    const [audiobookRes, audiobooksRes, storyRes] = await Promise.allSettled([
-      fetchWithFallback(`/json/stations/search?tag=audiobook&language=${lang}&limit=100&hidebroken=true&order=clicktrend&reverse=true`),
-      fetchWithFallback(`/json/stations/search?tag=audiobooks&language=${lang}&limit=100&hidebroken=true&order=clicktrend&reverse=true`),
-      fetchWithFallback(`/json/stations/search?tag=story&language=${lang}&limit=100&hidebroken=true&order=clicktrend&reverse=true`)
-    ]);
+  const lang = langQuery.toLowerCase();
+  const curated = CURATED_AUDIOBOOKS[lang] || [];
+  const paths = [
+    `/json/stations/search?tag=audiobook&language=${encodeURIComponent(lang)}&limit=80&hidebroken=true&order=clickcount&reverse=true`,
+    `/json/stations/search?tag=audiobooks&language=${encodeURIComponent(lang)}&limit=80&hidebroken=true&order=clickcount&reverse=true`,
+    `/json/stations/search?tag=literature&language=${encodeURIComponent(lang)}&limit=40&hidebroken=true&order=clickcount&reverse=true`,
+    `/json/stations/search?name=audiobook&limit=30&hidebroken=true&order=clickcount&reverse=true`,
+  ];
 
-    let merged: any[] = [];
-    if (audiobookRes.status === 'fulfilled') merged = [...merged, ...audiobookRes.value];
-    if (audiobooksRes.status === 'fulfilled') merged = [...merged, ...audiobooksRes.value];
-    if (storyRes.status === 'fulfilled') merged = [...merged, ...storyRes.value];
-
-    const unique = merged.filter((v, i, a) => a.findIndex(t => (t.stationuuid === v.stationuuid)) === i);
-
-    return unique.map((item: any) => ({
-      id: item.stationuuid,
-      name: item.name,
-      url: item.url_resolved || item.url,
-      favicon: item.favicon,
-      tags: item.tags,
-    }));
-  } catch (error) {
-    return [];
+  const settled = await Promise.allSettled(paths.map((path) => fetchWithFallback(path)));
+  const merged: any[] = [];
+  for (const result of settled) {
+    if (result.status === 'fulfilled' && Array.isArray(result.value)) {
+      merged.push(...result.value);
+    }
   }
+
+  const fromApi = merged
+    .filter((item) => matchesLanguage(item.language || '', lang) || lang === 'english' && /audiobook/i.test(`${item.name} ${item.tags}`))
+    .map(mapStation)
+    .filter((station) => !!station.url);
+
+  const unique: Station[] = [];
+  const seen = new Set<string>();
+  for (const station of [...curated, ...fromApi]) {
+    const key = station.url || station.id;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    unique.push(station);
+  }
+  return unique;
 };
 
 const getHash = (str: string) => {
@@ -150,7 +177,6 @@ const getHash = (str: string) => {
   return Math.abs(hash);
 };
 
-// Логика крипты с таймфреймами
 async function getTickerData(symbol: string, timeframe: string) {
   const formattedQuery = symbol.trim().toUpperCase();
   let price = 0;
@@ -182,7 +208,7 @@ async function getTickerData(symbol: string, timeframe: string) {
 
   let finalChange = change24h;
   if (timeframe !== '1D') {
-    const pseudoRandom = (getHash(formattedQuery) % 100) / 100; 
+    const pseudoRandom = (getHash(formattedQuery) % 100) / 100;
     if (timeframe === '1H') finalChange = change24h / 24 + (pseudoRandom * 2 - 1);
     if (timeframe === '1W') finalChange = change24h * (1.5 + pseudoRandom * 3);
     if (timeframe === '1M') finalChange = change24h * (4 + pseudoRandom * 8);
@@ -219,8 +245,8 @@ export const GENRES = [
 ];
 
 export const COUNTRIES = [
-  { code: 'UA', name: 'Ukraine' }, { code: 'US', name: 'USA' }, { code: 'DE', name: 'Germany' }, { code: 'GB', name: 'UK' }, 
-  { code: 'PL', name: 'Poland' },  { code: 'FR', name: 'France' }, { code: 'NL', name: 'Netherlands' }, { code: 'JP', name: 'Japan' },
+  { code: 'UA', name: 'Ukraine' }, { code: 'US', name: 'USA' }, { code: 'DE', name: 'Germany' }, { code: 'GB', name: 'UK' },
+  { code: 'PL', name: 'Poland' }, { code: 'FR', name: 'France' }, { code: 'NL', name: 'Netherlands' }, { code: 'JP', name: 'Japan' },
   { code: 'RU', name: 'Russia' }, { code: 'IT', name: 'Italy' }, { code: 'ES', name: 'Spain' }, { code: 'CH', name: 'Switzerland' },
   { code: 'SE', name: 'Sweden' }, { code: 'TR', name: 'Turkey' }, { code: 'CZ', name: 'Czech Republic' }, { code: 'RO', name: 'Romania' },
   { code: 'CA', name: 'Canada' }, { code: 'BR', name: 'Brazil' }, { code: 'MX', name: 'Mexico' }, { code: 'AR', name: 'Argentina' },
