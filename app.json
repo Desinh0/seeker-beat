@@ -2,7 +2,7 @@
   "expo": {
     "name": "Seeker Beat",
     "slug": "seeker-beat",
-    "version": "1.5.0",
+    "version": "2.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "userInterfaceStyle": "dark",
@@ -16,7 +16,7 @@
     ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.seekerbeat.radio",
+      "bundleIdentifier": "com.anonymous.seekerbeat",
       "infoPlist": {
         "UIBackgroundModes": [
           "audio",
@@ -30,7 +30,8 @@
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#0A0A0C"
       },
-      "package": "com.seekerbeat.radio",
+      "package": "com.anonymous.seekerbeat",
+      "versionCode": 21,
       "permissions": [
         "android.permission.WAKE_LOCK",
         "android.permission.FOREGROUND_SERVICE",
