@@ -4,7 +4,7 @@ import {
   View, Text, StyleSheet, FlatList, TouchableOpacity, Image,
   ActivityIndicator, TextInput, Animated, Easing,
   Modal, Alert, ScrollView, Switch, BackHandler, useWindowDimensions, Dimensions,
-  Platform, PermissionsAndroid, AppState, Linking, PanResponder, StatusBar
+  Platform, PermissionsAndroid, AppState, Linking, PanResponder
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets, SafeAreaProvider } from 'react-native-safe-area-context';
 import { Ionicons, FontAwesome } from '@expo/vector-icons';
@@ -21,13 +21,19 @@ import {
 import { playRadioStation, pauseRadioStation } from '../services/playerService';
 import MaskedView from '@react-native-masked-view/masked-view';
 import { LinearGradient } from 'expo-linear-gradient';
-import { WebView } from 'react-native-webview';
 
 import TrackPlayer, { usePlaybackState, State, useActiveTrack, Event, Capability, AppKilledPlaybackBehavior, RepeatMode } from 'react-native-track-player';
 
 import notifee, { TriggerType, TimestampTrigger, AndroidImportance, AndroidVisibility, EventType, AlarmType, AndroidNotificationSetting, AndroidCategory } from '@notifee/react-native';
 import Reanimated, { useSharedValue, useAnimatedStyle, withRepeat, withTiming, Easing as REasing, cancelAnimation } from 'react-native-reanimated';
 import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
+
+const brandTitle = (id: string) => {
+  if (id === 'mario') return 'BRICKS';
+  if (id === 'minecraft') return 'BLOCKS';
+  if (id === 'winamp') return 'SLIDERS';
+  return String(id || '').toUpperCase();
+};
 
 const FAVORITES_STORAGE_KEY = '@seeker_beat_favorites';
 const CUSTOM_COINS_KEY = '@seeker_beat_custom_coins_array'; 
@@ -60,11 +66,8 @@ const WINAMP_PRESETS: Record<string, number[]> = {
 const TRACK_HISTORY_KEY = '@seeker_beat_history';
 const WEATHER_ENABLED_KEY = '@seeker_beat_weather';
 const WEATHER_MOVE_KEY = '@seeker_beat_weather_move';
-const EQ_STYLE_KEY = '@seeker_beat_eq_style';
-const DRIVE_EQ_STYLE_KEY = '@seeker_beat_drive_eq_style'; 
+const EQ_STYLE_KEY = '@seeker_beat_eq_style'; 
 const THEME_KEY = '@seeker_beat_theme';
-const THEME_CYCLE = ['default', 'cyberpunk', 'winamp', 'aimp', 'matrix', 'synthwave', 'dracula', 'blood', 'midnight', 'amber', 'ocean', 'minecraft', 'seeker', 'mario'] as const;
-const THEME_LABEL: Record<string, string> = { default: 'NEON', cyberpunk: 'CYBER', winamp: 'WINAMP', aimp: 'AIMP', matrix: 'MATRIX', synthwave: 'MIAMI', dracula: 'DRACULA', blood: 'BLOOD', midnight: 'MIDNIGHT', amber: 'AMBER', ocean: 'OCEAN', minecraft: 'MINECRAFT', seeker: 'SEEKER', mario: 'MARIO' };
 const MARIO_FX_KEY = '@seeker_beat_mario_fx';
 const THEME_FX_KEY = '@seeker_beat_theme_fx';
 const MATRIX_FX_KEY = '@seeker_beat_matrix_fx';
@@ -102,8 +105,7 @@ const ALL_GENRES = [
 const NUM_BARS = 16;
 const SEGMENTS_PER_BAR = 11;
 const CUBE_COLS = 11;
-const CUBE_ROWS = 16;
-const RAINBOW = ['#7C5CFF', '#3D7BFF', '#00C2FF', '#14F195', '#C6F54A', '#FCEE0A', '#FF9F1C', '#FF3B6B'];
+const CUBE_ROWS = 14;
 
 const PULSE_EFFECTS = [
   { id: 'classic', kind: 'icon', icon: 'pulse', colors: null, duration: 2500 },
@@ -141,7 +143,7 @@ const MatrixLine = ({ text, active, style, lines = 1 }: any) => {
 };
 
 
-const ThemeFx = ({ theme, burst, isPlaying, raining, drive, accent, logoTop = 88 }: any) => {
+const ThemeFx = ({ theme, burst, isPlaying, raining, drive, accent }: any) => {
   const sweep = useRef(new Animated.Value(0)).current;
   const dim = useRef(new Animated.Value(0)).current;
   const [glitch, setGlitch] = useState(false);
@@ -150,10 +152,10 @@ const ThemeFx = ({ theme, burst, isPlaying, raining, drive, accent, logoTop = 88
     let loop: Animated.CompositeAnimation | null = null;
     let timer: ReturnType<typeof setInterval> | null = null;
     sweep.setValue(0);
-    if (theme === 'default' || theme === 'seeker' || theme === 'ocean' || theme === 'dracula' || theme === 'matrix' || theme === 'amber' || theme === 'midnight' || theme === 'cyberpunk' || theme === 'winamp' || theme === 'aimp' || theme === 'synthwave' || theme === 'minecraft') {
+    if (theme === 'default' || theme === 'seeker' || theme === 'ocean' || theme === 'dracula' || theme === 'matrix' || theme === 'amber') {
       loop = Animated.loop(Animated.timing(sweep, {
         toValue: 1,
-        duration: theme === 'winamp' ? 900 : theme === 'aimp' ? 1100 : theme === 'ocean' ? 12000 : theme === 'minecraft' ? 8000 : theme === 'synthwave' ? 5200 : theme === 'cyberpunk' ? 7000 : theme === 'dracula' ? 4200 : theme === 'amber' ? 2800 : theme === 'matrix' ? 5200 : 3400,
+        duration: theme === 'dracula' ? 4200 : theme === 'amber' ? 2800 : theme === 'matrix' ? 5200 : 3400,
         easing: Easing.linear,
         useNativeDriver: true,
       }));
@@ -180,89 +182,16 @@ const ThemeFx = ({ theme, burst, isPlaying, raining, drive, accent, logoTop = 88
   const rise = sweep.interpolate({ inputRange: [0, 1], outputRange: [150, -90] });
   const spin = sweep.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] });
   const glow = sweep.interpolate({ inputRange: [0, 0.5, 1], outputRange: [0.12, 0.5, 0.12] });
-  const twA = sweep.interpolate({ inputRange: [0, 0.5, 1], outputRange: [0.12, 1, 0.12] });
-  const twB = sweep.interpolate({ inputRange: [0, 0.5, 1], outputRange: [1, 0.08, 1] });
-  const twC = sweep.interpolate({ inputRange: [0, 0.25, 0.7, 1], outputRange: [0.2, 1, 0.05, 0.2] });
-  const bob = sweep.interpolate({ inputRange: [0, 0.25, 0.5, 0.75, 1], outputRange: [0, -18, 8, -12, 0] });
-  const flap = sweep.interpolate({ inputRange: [0, 0.2, 0.4, 0.6, 0.8, 1], outputRange: ['-34deg', '24deg', '-34deg', '24deg', '-34deg', '24deg'] });
-  const back = sweep.interpolate({ inputRange: [0, 1], outputRange: [340, -60] });
-  const circuit = sweep.interpolate({ inputRange: [0, 1], outputRange: [-24, 90] });
-  const amberPulse = sweep.interpolate({ inputRange: [0, 0.5, 1], outputRange: [0.28, 0.95, 0.28] });
-  const amberScale = sweep.interpolate({ inputRange: [0, 0.5, 1], outputRange: [0.86, 1.16, 0.86] });
-  const sway = sweep.interpolate({ inputRange: [0, 0.25, 0.5, 0.75, 1], outputRange: ['-10deg', '8deg', '-6deg', '12deg', '-10deg'] });
 
   return (
     <View style={[StyleSheet.absoluteFill, { zIndex: 30, pointerEvents: 'none' }]}>
-      {theme === 'default' && (
-        <>
-          <View style={{ position: 'absolute', top: Math.max(4, (logoTop || 88) - 26), left: 10, right: 10, height: 16, overflow: 'hidden' }}>
-            <Animated.View style={{ position: 'absolute', top: 5, height: 7, width: 78, borderRadius: 4, backgroundColor: accent, opacity: 0.28, transform: [{ translateX: travel }] }} />
-            <Animated.View style={{ position: 'absolute', top: 7, height: 2, width: 78, borderRadius: 1, backgroundColor: '#FFFFFF', transform: [{ translateX: travel }] }} />
-            <Animated.View style={{ position: 'absolute', top: 3, height: 2, width: 42, backgroundColor: '#FF2BD6', opacity: 0.85, transform: [{ translateX: back }] }} />
-          </View>
-          <Animated.View style={{ position: 'absolute', top: (logoTop || 88) - 8, left: 8, width: 84, height: 84, borderRadius: 42, borderWidth: 2, borderColor: accent, opacity: glow, transform: [{ scale: amberScale }] }} />
-          <View style={{ position: 'absolute', top: logoTop || 88, left: 16, width: 68, height: 68 }}>
-            <View style={{ position: 'absolute', top: -4, left: -4, width: 14, height: 14, borderTopWidth: 2, borderLeftWidth: 2, borderColor: accent }} />
-            <View style={{ position: 'absolute', top: -4, right: -4, width: 14, height: 14, borderTopWidth: 2, borderRightWidth: 2, borderColor: '#FF2BD6' }} />
-            <View style={{ position: 'absolute', bottom: -4, left: -4, width: 14, height: 14, borderBottomWidth: 2, borderLeftWidth: 2, borderColor: '#FF2BD6' }} />
-            <View style={{ position: 'absolute', bottom: -4, right: -4, width: 14, height: 14, borderBottomWidth: 2, borderRightWidth: 2, borderColor: accent }} />
-          </View>
-        </>
-      )}
-      {theme === 'aimp' && (
-        <View style={{ position: 'absolute', top: Math.max(4, (logoTop || 88) - 22), left: 14, right: 14, height: 18 }}>
-          <View style={{ flex: 1, flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between' }}>
-            {Array.from({ length: 26 }).map((_, i) => {
-              const src = i % 3 === 0 ? twA : i % 3 === 1 ? glow : twB;
-              const drop = src.interpolate({ inputRange: [0, 1], outputRange: [12, 1] });
-              return (
-                <View key={`aimp-${i}`} style={{ width: 4, height: 16, overflow: 'hidden' }}>
-                  <Animated.View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: 16, borderRadius: 1, backgroundColor: i > 21 ? '#FFE08A' : '#FF6600', transform: [{ translateY: drop }] }} />
-                </View>
-              );
-            })}
-          </View>
-          <View style={{ height: 1, marginTop: 1, backgroundColor: '#FF9900', opacity: 0.8 }} />
-        </View>
-      )}
-      {theme === 'winamp' && (
-        <View style={{ position: 'absolute', top: Math.max(4, (logoTop || 88) - 16), left: 16, right: 16, height: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', overflow: 'hidden' }}>
-          {Array.from({ length: 24 }).map((_, i) => {
-            const src = i % 3 === 0 ? twA : i % 3 === 1 ? twB : glow;
-            const y = src.interpolate({ inputRange: [0, 1], outputRange: i % 2 ? [4, -4] : [-4, 4] });
-            return <Animated.View key={`scope-${i}`} style={{ width: 7, height: 2, borderRadius: 1, backgroundColor: i === 23 ? '#FFA500' : '#3CFF4A', transform: [{ translateY: y }] }} />;
-          })}
-        </View>
-      )}
-      {theme === 'cyberpunk' && (
-        <View style={{ position: 'absolute', top: Math.max(4, (logoTop || 88) - 34), left: 16, right: 12, height: 30, overflow: 'hidden' }}>
-          {Array.from({ length: 7 }).map((_, i) => (
-            <Animated.View key={`cb-${i}`} style={{ position: 'absolute', top: 4 + (i % 3) * 9, left: (i % 4) * 18, width: i % 2 ? 16 : 26, height: 2, backgroundColor: i % 2 ? '#FF2BD6' : '#FCEE0A', opacity: 0.45, transform: [{ translateX: i % 2 ? circuit : travel }] }} />
-          ))}
-          {Array.from({ length: 5 }).map((_, i) => (
-            <View key={`cn-${i}`} style={{ position: 'absolute', left: 8 + i * 46, top: i % 2 ? 16 : 6, width: 4, height: 4, backgroundColor: i % 2 ? '#FCEE0A' : '#FF003C', opacity: 0.7 }} />
-          ))}
-        </View>
-      )}
+      {theme === 'default' && <Animated.View style={{ position: 'absolute', top: 0, height: 2, width: 90, backgroundColor: accent, transform: [{ translateX: travel }] }} />}
       {theme === 'cyberpunk' && glitch && (
         <>
-          <Text style={{ position: 'absolute', top: (logoTop || 88) + 28, left: 94, color: '#FCEE0A', fontSize: 22, fontWeight: '900', letterSpacing: 1, opacity: 0.7 }}>SEEKER BEAT</Text>
-          <Text style={{ position: 'absolute', top: (logoTop || 88) + 29, left: 102, color: '#FF003C', fontSize: 22, fontWeight: '900', letterSpacing: 1, opacity: 0.65 }}>SEEKER BEAT</Text>
+          <View style={{ position: 'absolute', top: 92, left: 0, right: 0, height: 6, backgroundColor: '#FCEE0A' }} />
+          <View style={{ position: 'absolute', top: 148, left: 8, right: 36, height: 3, backgroundColor: '#FF003C' }} />
+          <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(252,238,10,0.07)' }]} />
         </>
-      )}
-      {theme === 'synthwave' && (
-        <View style={{ position: 'absolute', top: Math.max(0, (logoTop || 88) - 44), left: 0, right: 0, height: 40, alignItems: 'center' }}>
-          <Animated.View style={{ position: 'absolute', top: 0, width: 42, height: 42, borderRadius: 21, borderWidth: 2, borderColor: '#00FFFF', opacity: glow }} />
-          <Animated.View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: '#FF2D95', overflow: 'hidden', transform: [{ scale: amberScale }] }}>
-            {[9, 15, 20, 25].map((t, i) => (
-              <View key={`sun-${i}`} style={{ position: 'absolute', top: t, left: 0, right: 0, height: i > 1 ? 3 : 2, backgroundColor: '#1A0033' }} />
-            ))}
-          </Animated.View>
-          <Animated.View style={{ position: 'absolute', left: 24, top: 8, width: 18, height: 2, backgroundColor: '#00FFFF', opacity: twA, transform: [{ translateX: travel }] }} />
-          <Animated.View style={{ position: 'absolute', right: 28, top: 18, width: 28, height: 2, backgroundColor: '#FF2D95', opacity: twB, transform: [{ translateX: back }] }} />
-          <View style={{ position: 'absolute', left: 18, right: 18, bottom: 2, height: 2, backgroundColor: '#FF2D95', opacity: 0.85 }} />
-          <View style={{ position: 'absolute', left: 48, right: 48, bottom: 0, height: 1, backgroundColor: '#00FFFF', opacity: 0.7 }} />
-        </View>
       )}
       {theme === 'synthwave' && glitch && <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(255,45,149,0.28)' }]} />}
       {theme === 'minecraft' && glitch && (
@@ -271,165 +200,44 @@ const ThemeFx = ({ theme, burst, isPlaying, raining, drive, accent, logoTop = 88
           <View style={{ position: 'absolute', width: 2, height: 28, backgroundColor: '#1A1A1A', transform: [{ rotate: '18deg' }] }} />
         </View>
       )}
-      {theme === 'minecraft' && (
-        <>
-          <View style={{ position: 'absolute', top: 18, left: 24, width: 16, height: 16, backgroundColor: '#FFE14A', borderWidth: 2, borderColor: '#E2B400' }} />
-          {[{ left: 70, top: 22 }, { left: 210, top: 36 }].map((c, i) => (
-            <Animated.View key={`mc-cloud-${i}`} style={{ position: 'absolute', top: c.top, left: c.left, flexDirection: 'row', alignItems: 'flex-end', transform: [{ translateX: i ? back : travel }] }}>
-              <View style={{ width: 12, height: 8, backgroundColor: '#F7FBFF' }} />
-              <View style={{ width: 16, height: 12, backgroundColor: '#F7FBFF' }} />
-              <View style={{ width: 10, height: 8, backgroundColor: '#F7FBFF' }} />
-            </Animated.View>
-          ))}
-          <View style={{ position: 'absolute', left: 12, bottom: drive ? 92 : 168, alignItems: 'center' }}>
-            <View style={{ width: 26, height: 16, backgroundColor: '#3F9A32' }} />
-            <View style={{ width: 8, height: 14, backgroundColor: '#6B4423' }} />
-          </View>
-          <View style={{ position: 'absolute', left: 0, right: 0, bottom: drive ? 0 : 150, height: drive ? 28 : 20, flexDirection: 'column' }}>
-            <View style={{ height: 6, backgroundColor: '#5D9B2E' }} />
-            <View style={{ flex: 1, backgroundColor: '#8B5A2B' }} />
-          </View>
-          <Animated.View style={{ position: 'absolute', bottom: drive ? 28 : 168, transform: [{ translateX: travel }] }}>
-            <View style={{ width: 30, height: 16 }}>
-              <View style={{ position: 'absolute', left: 2, top: 2, width: 16, height: 9, backgroundColor: '#F4A7B8' }} />
-              <View style={{ position: 'absolute', left: 16, top: 5, width: 8, height: 6, backgroundColor: '#E4899C' }} />
-              <View style={{ position: 'absolute', left: 5, top: 11, width: 3, height: 5, backgroundColor: '#C56D84' }} />
-              <View style={{ position: 'absolute', left: 12, top: 11, width: 3, height: 5, backgroundColor: '#C56D84' }} />
-            </View>
-          </Animated.View>
-          <Animated.View style={{ position: 'absolute', bottom: drive ? 28 : 168, transform: [{ translateX: back }] }}>
-            <View style={{ width: 20, height: 16 }}>
-              <View style={{ position: 'absolute', left: 6, top: 0, width: 3, height: 3, backgroundColor: '#E52521' }} />
-              <View style={{ position: 'absolute', left: 4, top: 3, width: 10, height: 8, backgroundColor: '#F4F4F4' }} />
-              <View style={{ position: 'absolute', left: 13, top: 5, width: 4, height: 3, backgroundColor: '#F2C14E' }} />
-              <View style={{ position: 'absolute', left: 6, top: 11, width: 2, height: 4, backgroundColor: '#F2C14E' }} />
-              <View style={{ position: 'absolute', left: 10, top: 11, width: 2, height: 4, backgroundColor: '#F2C14E' }} />
-            </View>
-          </Animated.View>
-          <Animated.View style={{ position: 'absolute', bottom: drive ? 26 : 166, transform: [{ translateX: travel }] }}>
-            <View style={{ width: 26, height: 16, marginLeft: 80 }}>
-              <View style={{ position: 'absolute', left: 2, top: 1, width: 18, height: 10, backgroundColor: '#F7F7F7' }} />
-              <View style={{ position: 'absolute', left: 16, top: 4, width: 6, height: 6, backgroundColor: '#D8D2C4' }} />
-              <View style={{ position: 'absolute', left: 4, top: 11, width: 3, height: 4, backgroundColor: '#6B4423' }} />
-              <View style={{ position: 'absolute', left: 12, top: 11, width: 3, height: 4, backgroundColor: '#6B4423' }} />
-            </View>
-          </Animated.View>
-        </>
-      )}
       {theme === 'matrix' && !drive && (
-        <View style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 230, overflow: 'hidden' }}>
-          {['010アイウカキ', '7セタチツXメ', 'Z5キ日0ウサ'].map((row, r) => (
-            <Animated.Text key={`mxh-${r}`} style={{ position: 'absolute', top: 6 + r * 18, color: r === 1 ? '#D4FFE0' : '#00FF41', opacity: 0.45, fontSize: 12, letterSpacing: 2, transform: [{ translateX: r % 2 ? travel : back }] }}>
-              {`${row}  ${row}  ${row}`}
-            </Animated.Text>
-          ))}
-          {['ア','0','1','セ','カ','7','メ','日','Z','5','キ','X','ウ','サ','タ','9'].map((ch, i) => (
-            <Animated.Text key={`mx-${i}`} style={{ position: 'absolute', left: 4 + (i % 16) * 24, top: 58 + (i % 3) * 10, color: i % 5 === 0 ? '#D4FFE0' : '#00FF41', opacity: 0.55, fontSize: 13, lineHeight: 15, transform: [{ translateY: i % 2 ? rise : fall }] }}>
-              {`${ch}\n${i % 2 ? '0' : '1'}\n${i % 3 ? 'ア' : 'メ'}\n${ch}\n7`}
+        <View style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 168, overflow: 'hidden' }}>
+          {['ア','0','1','セ','カ','7','メ','日','Z','5','キ','X'].map((ch, i) => (
+            <Animated.Text key={`mx-${i}`} style={{ position: 'absolute', left: 6 + i * 31, top: (i % 4) * 16, color: i % 5 === 0 ? '#D4FFE0' : '#00FF41', opacity: 0.5, fontSize: 13, lineHeight: 16, transform: [{ translateY: i % 2 ? rise : fall }] }}>
+              {`${ch}\n${i % 2 ? '0' : '1'}\n${ch}\n7`}
             </Animated.Text>
           ))}
         </View>
       )}
-      {theme === 'matrix' && drive && ['ア','0','1','セ','カ','7','メ','日','Z','5'].map((ch, i) => (
-        <Animated.Text key={ch + i} style={{ position: 'absolute', left: 8 + i * 36, color: '#00FF41', opacity: 0.45, fontSize: 14, lineHeight: 16, transform: [{ translateY: i % 2 ? fall : rise }] }}>{`${ch}\n1\n0\n${ch}`}</Animated.Text>
+      {theme === 'matrix' && drive && ['ア','0','1','セ','カ','7'].map((ch, i) => (
+        <Animated.Text key={ch + i} style={{ position: 'absolute', left: 12 + i * 56, color: '#00FF41', opacity: 0.4, fontSize: 14, transform: [{ translateY: fall }] }}>{ch}</Animated.Text>
       ))}
       {theme === 'dracula' && (
         <>
           <View style={{ position: 'absolute', top: 48, right: 22, width: 34, height: 34, borderRadius: 17, backgroundColor: '#E8E8F0' }} />
           <View style={{ position: 'absolute', top: 42, right: 34, width: 28, height: 28, borderRadius: 14, backgroundColor: '#120814' }} />
-          {Array.from({ length: 5 }).map((_, i) => (
-            <Animated.View key={`fog-${i}`} style={{ position: 'absolute', top: 120 + i * 28, left: -20, width: 90 + i * 18, height: 10, borderRadius: 8, backgroundColor: 'rgba(180,170,190,0.13)', transform: [{ translateX: i % 2 ? travel : back }] }} />
-          ))}
-          <Animated.View style={{ position: 'absolute', top: 78, transform: [{ translateX: travel }, { translateY: bob }] }}>
+          <Animated.View style={{ position: 'absolute', top: 86, transform: [{ translateX: travel }] }}>
             <View style={{ flexDirection: 'row', alignItems: 'flex-end' }}>
-              <Animated.View style={{ width: 20, height: 9, backgroundColor: '#1A1020', borderTopLeftRadius: 14, borderBottomLeftRadius: 2, transform: [{ rotate: flap }] }} />
-              <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#1A1020', marginHorizontal: -2 }}>
-                <View style={{ position: 'absolute', left: 1, top: 2, width: 2, height: 2, borderRadius: 1, backgroundColor: '#FF3355' }} />
-                <View style={{ position: 'absolute', right: 1, top: 2, width: 2, height: 2, borderRadius: 1, backgroundColor: '#FF3355' }} />
-              </View>
-              <Animated.View style={{ width: 20, height: 9, backgroundColor: '#1A1020', borderTopRightRadius: 14, borderBottomRightRadius: 2, transform: [{ rotate: flap }] }} />
+              <View style={{ width: 16, height: 8, backgroundColor: '#1A1020', borderTopLeftRadius: 12, borderBottomLeftRadius: 2, transform: [{ rotate: '-18deg' }] }} />
+              <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: '#1A1020', marginHorizontal: -1 }} />
+              <View style={{ width: 16, height: 8, backgroundColor: '#1A1020', borderTopRightRadius: 12, borderBottomRightRadius: 2, transform: [{ rotate: '18deg' }] }} />
             </View>
           </Animated.View>
-          <Animated.View style={{ position: 'absolute', top: 150, transform: [{ translateX: back }, { translateY: bob }] }}>
-            <View style={{ flexDirection: 'row', alignItems: 'flex-end', opacity: 0.7 }}>
-              <View style={{ width: 12, height: 5, backgroundColor: '#1A1020', borderTopLeftRadius: 8 }} />
-              <View style={{ width: 5, height: 5, borderRadius: 3, backgroundColor: '#1A1020' }} />
-              <View style={{ width: 12, height: 5, backgroundColor: '#1A1020', borderTopRightRadius: 8 }} />
-            </View>
-          </Animated.View>
-          {Array.from({ length: 4 }).map((_, i) => (
-            <Animated.View key={`drip-${i}`} style={{ position: 'absolute', top: 40, left: 30 + i * 80, width: 3, height: 8, borderRadius: 2, backgroundColor: '#8B0015', transform: [{ translateY: fall }] }} />
-          ))}
         </>
       )}
       {theme === 'blood' && <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: '#6B0010', opacity: dim }]} />}
-      {theme === 'midnight' && Array.from({ length: 22 }).map((_, i) => (
-        <Animated.View key={i} style={{ position: 'absolute', left: (i * 53) % 350, top: 18 + (i % 6) * 36, width: i % 4 === 0 ? 4 : 2, height: i % 4 === 0 ? 4 : 2, borderRadius: 3, backgroundColor: i % 5 === 0 ? '#FFFFFF' : '#D6E2FF', opacity: i % 3 === 0 ? twA : i % 3 === 1 ? twB : twC }} />
+      {theme === 'midnight' && Array.from({ length: 12 }).map((_, i) => (
+        <View key={i} style={{ position: 'absolute', left: (i * 47) % 340, top: 28 + (i % 5) * 34, width: i % 3 === 0 ? 3 : 2, height: i % 3 === 0 ? 3 : 2, borderRadius: 2, backgroundColor: '#D6E2FF', opacity: 0.75 }} />
       ))}
-      {theme === 'midnight' && (
-        <View style={{ position: 'absolute', top: Math.max(4, (logoTop || 88) - 16), left: 14, right: 14, height: 12, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-          {Array.from({ length: 16 }).map((_, i) => (
-            <Animated.View key={`star-top-${i}`} style={{ width: i % 3 === 0 ? 5 : 3, height: i % 3 === 0 ? 5 : 3, borderRadius: 3, backgroundColor: i % 4 === 0 ? '#FFFFFF' : '#C9D8FF', opacity: i % 3 === 0 ? twA : i % 3 === 1 ? twB : twC, marginTop: i % 2 ? 5 : 0 }} />
-          ))}
-        </View>
-      )}
       {theme === 'amber' && (
-        <>
-          <Animated.View style={{ position: 'absolute', left: 10, top: Math.max(0, (logoTop || 88) - 6), width: 78, height: 78, borderRadius: 39, borderWidth: 6, borderColor: '#FFB000', backgroundColor: 'transparent', opacity: amberPulse, transform: [{ scale: amberScale }] }} />
-          <View style={{ position: 'absolute', top: Math.max(4, (logoTop || 88) - 18), left: 12, right: 12, height: 14, overflow: 'hidden' }}>
-            <Animated.View style={{ position: 'absolute', top: 6, height: 2, width: 84, backgroundColor: '#FFB000', opacity: 0.9, transform: [{ translateX: travel }] }} />
-            <Animated.View style={{ position: 'absolute', top: 2, right: 6, width: 8, height: 10, backgroundColor: '#FFB000', opacity: twA }} />
-            {Array.from({ length: 8 }).map((_, i) => (
-              <Animated.View key={`amb-${i}`} style={{ position: 'absolute', left: 10 + i * 34, top: i % 2 ? 1 : 8, width: i % 3 === 0 ? 4 : 2, height: i % 3 === 0 ? 4 : 2, borderRadius: 2, backgroundColor: '#FFD56A', opacity: i % 2 ? twB : twC }} />
-            ))}
-          </View>
-        </>
+        <Animated.View style={{ position: 'absolute', top: -50, left: -40, width: 200, height: 200, borderRadius: 100, backgroundColor: '#FFB000', opacity: glow }} />
       )}
       {theme === 'ocean' && (
         <>
-          <LinearGradient colors={['rgba(120,220,255,0.28)', 'rgba(8,70,110,0.08)', 'rgba(0,20,36,0.42)']} locations={[0, 0.42, 1]} style={StyleSheet.absoluteFill} />
-          {[18, 90, 170].map((left, i) => (
-            <Animated.View key={`ray-${i}`} style={{ position: 'absolute', top: -20, left, width: 28, height: 280, backgroundColor: 'rgba(180,240,255,0.13)', transform: [{ rotate: i === 1 ? '8deg' : '-12deg' }, { translateY: bob }] }} />
+          <Animated.View style={{ position: 'absolute', bottom: 96, height: 3, width: 120, backgroundColor: 'rgba(0,190,255,0.7)', transform: [{ translateX: travel }] }} />
+          {raining && Array.from({ length: 8 }).map((_, i) => (
+            <Animated.View key={i} style={{ position: 'absolute', left: 8 + i * 46, width: 2, height: 12, backgroundColor: 'rgba(180,230,255,0.75)', transform: [{ translateY: fall }] }} />
           ))}
-          {Array.from({ length: 8 }).map((_, i) => (
-            <Animated.View key={`bub-${i}`} style={{ position: 'absolute', left: 16 + (i * 44) % 320, bottom: 90, width: i % 3 === 0 ? 8 : 5, height: i % 3 === 0 ? 8 : 5, borderRadius: 8, borderWidth: 1, borderColor: 'rgba(210,245,255,0.85)', backgroundColor: 'rgba(255,255,255,0.18)', transform: [{ translateY: rise }] }} />
-          ))}
-          <Animated.View style={{ position: 'absolute', top: 210, transform: [{ translateX: travel }, { translateY: bob }] }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <View style={{ width: 0, height: 0, borderTopWidth: 6, borderBottomWidth: 6, borderRightWidth: 9, borderTopColor: 'transparent', borderBottomColor: 'transparent', borderRightColor: '#FF8A3D' }} />
-              <View style={{ width: 28, height: 13, borderRadius: 8, backgroundColor: '#FF8A3D', marginLeft: -1 }}>
-                <View style={{ position: 'absolute', top: 2, right: 5, width: 4, height: 4, borderRadius: 2, backgroundColor: '#fff' }} />
-                <View style={{ position: 'absolute', top: 3, right: 6, width: 2, height: 2, borderRadius: 1, backgroundColor: '#062033' }} />
-              </View>
-            </View>
-          </Animated.View>
-          <Animated.View style={{ position: 'absolute', top: 300, transform: [{ translateX: back }, { translateY: bob }, { scaleX: -1 }] }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <View style={{ width: 0, height: 0, borderTopWidth: 5, borderBottomWidth: 5, borderRightWidth: 8, borderTopColor: 'transparent', borderBottomColor: 'transparent', borderRightColor: '#7CFFD2' }} />
-              <View style={{ width: 22, height: 10, borderRadius: 7, backgroundColor: '#7CFFD2', marginLeft: -1 }}>
-                <View style={{ position: 'absolute', top: 2, right: 4, width: 3, height: 3, borderRadius: 2, backgroundColor: '#062033' }} />
-              </View>
-            </View>
-          </Animated.View>
-          <Animated.View style={{ position: 'absolute', top: 390, left: 24, transform: [{ translateX: travel }, { translateY: bob }] }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <View style={{ width: 0, height: 0, borderTopWidth: 4, borderBottomWidth: 4, borderRightWidth: 7, borderTopColor: 'transparent', borderBottomColor: 'transparent', borderRightColor: '#FFE07A' }} />
-              <View style={{ width: 16, height: 8, borderRadius: 5, backgroundColor: '#FFE07A' }} />
-            </View>
-          </Animated.View>
-          <Animated.View style={{ position: 'absolute', top: 250, right: 28, alignItems: 'center', transform: [{ translateY: bob }, { rotate: sway }] }}>
-            <View style={{ width: 10, height: 5, borderRadius: 3, backgroundColor: '#F0B429', transform: [{ rotate: '-28deg' }], marginLeft: 10 }} />
-            <View style={{ width: 14, height: 14, borderRadius: 8, backgroundColor: '#F6C453', marginTop: -1 }} />
-            <View style={{ width: 11, height: 16, borderRadius: 7, backgroundColor: '#E0A020', marginTop: -3 }} />
-            <View style={{ width: 12, height: 12, borderRadius: 6, borderWidth: 3, borderColor: '#E0A020', borderTopColor: 'transparent', borderLeftColor: 'transparent', marginTop: -2 }} />
-          </Animated.View>
-          {[0, 1, 2, 3].map((i) => (
-            <Animated.View key={`weed-l-${i}`} style={{ position: 'absolute', bottom: 78, left: 6 + i * 12, width: 7, height: 54 + i * 16, borderTopLeftRadius: 8, borderTopRightRadius: 8, backgroundColor: i % 2 ? '#19C48A' : '#0C8F6A', opacity: 0.9, transform: [{ rotate: sway }] }} />
-          ))}
-          {[0, 1, 2].map((i) => (
-            <Animated.View key={`weed-r-${i}`} style={{ position: 'absolute', bottom: 86, right: 8 + i * 14, width: 7, height: 48 + i * 20, borderTopLeftRadius: 8, borderTopRightRadius: 8, backgroundColor: i % 2 ? '#12B8A0' : '#147A55', opacity: 0.9, transform: [{ rotate: sway }] }} />
-          ))}
-          <View style={{ position: 'absolute', left: 0, right: 0, bottom: 64, height: 16, backgroundColor: 'rgba(194,168,110,0.28)' }} />
         </>
       )}
       {theme === 'seeker' && (
@@ -461,53 +269,14 @@ const WinampBounce = ({ active, children }: any) => {
 const AimpNeedle = () => {
   const x = useRef(new Animated.Value(0)).current;
   useEffect(() => {
-    const loop = Animated.loop(Animated.timing(x, { toValue: 1, duration: 1000, easing: Easing.linear, useNativeDriver: true }));
+    const loop = Animated.loop(Animated.timing(x, { toValue: 1, duration: 1600, easing: Easing.inOut(Easing.ease), useNativeDriver: true }));
     loop.start();
     return () => loop.stop();
   }, []);
+  const shift = x.interpolate({ inputRange: [0, 1], outputRange: [0, 150] });
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'flex-end', height: 14, marginTop: 4, gap: 2 }}>
-      {Array.from({ length: 16 }).map((_, i) => {
-        const low = 8 + (i % 4) * 1.5;
-        const high = 1 + (i % 5);
-        const drop = x.interpolate({ inputRange: [0, 0.5, 1], outputRange: i % 2 ? [low, high, low] : [high, low, high] });
-        return (
-          <View key={`aimp-b-${i}`} style={{ width: 3, height: 14, overflow: 'hidden' }}>
-            <Animated.View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: 14, borderRadius: 1, backgroundColor: i > 12 ? '#FFE08A' : '#FF6600', transform: [{ translateY: drop }] }} />
-          </View>
-        );
-      })}
-    </View>
-  );
-};
-
-const DraculaPlayerFx = () => {
-  const x = useRef(new Animated.Value(0)).current;
-  useEffect(() => {
-    const loop = Animated.loop(Animated.timing(x, { toValue: 1, duration: 3800, easing: Easing.linear, useNativeDriver: true }));
-    loop.start();
-    return () => loop.stop();
-  }, []);
-  const slide = x.interpolate({ inputRange: [0, 1], outputRange: [-40, 260] });
-  const flap = x.interpolate({ inputRange: [0, 0.25, 0.5, 0.75, 1], outputRange: ['-32deg', '26deg', '-32deg', '26deg', '-32deg'] });
-  const drip = x.interpolate({ inputRange: [0, 1], outputRange: [-6, 16] });
-  return (
-    <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-      <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(48, 0, 24, 0.34)' }]} />
-      <View style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, backgroundColor: '#8B0015' }} />
-      {[18, 92, 150].map((left, i) => (
-        <Animated.View key={`pdrip-${i}`} style={{ position: 'absolute', top: 0, left, width: 3, height: 8, borderRadius: 2, backgroundColor: '#B00020', transform: [{ translateY: drip }] }} />
-      ))}
-      <Animated.View style={{ position: 'absolute', top: 4, transform: [{ translateX: slide }] }}>
-        <View style={{ flexDirection: 'row', alignItems: 'flex-end' }}>
-          <Animated.View style={{ width: 14, height: 6, backgroundColor: '#140814', borderTopLeftRadius: 10, transform: [{ rotate: flap }] }} />
-          <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: '#140814', marginHorizontal: -1 }}>
-            <View style={{ position: 'absolute', left: 1, top: 1, width: 1.5, height: 1.5, borderRadius: 1, backgroundColor: '#FF3355' }} />
-            <View style={{ position: 'absolute', right: 1, top: 1, width: 1.5, height: 1.5, borderRadius: 1, backgroundColor: '#FF3355' }} />
-          </View>
-          <Animated.View style={{ width: 14, height: 6, backgroundColor: '#140814', borderTopRightRadius: 10, transform: [{ rotate: flap }] }} />
-        </View>
-      </Animated.View>
+    <View style={{ height: 5, marginTop: 5, borderRadius: 3, backgroundColor: '#3A2208', overflow: 'hidden' }}>
+      <Animated.View style={{ position: 'absolute', left: 0, width: 42, height: 5, borderRadius: 3, backgroundColor: '#FF6600', transform: [{ translateX: shift }] }} />
     </View>
   );
 };
@@ -767,37 +536,16 @@ const ChampagneDust = ({ isPlaying, primaryNeon }: any) => {
 };
 
 const SynthwaveSunset = ({ primaryNeon, secondaryNeon, bgTheme }: any) => {
-  const drift = useRef(new Animated.Value(0)).current;
-  useEffect(() => {
-    const loop = Animated.loop(Animated.timing(drift, { toValue: 1, duration: 16000, easing: Easing.linear, useNativeDriver: true }));
-    loop.start();
-    return () => loop.stop();
-  }, []);
-  const slide = drift.interpolate({ inputRange: [0, 1], outputRange: [-120, 160] });
-  const pulse = drift.interpolate({ inputRange: [0, 0.5, 1], outputRange: [0.96, 1.08, 0.96] });
   return (
-    <View style={[StyleSheet.absoluteFill, { backgroundColor: '#120018', overflow: 'hidden' }]} pointerEvents="none">
-      <LinearGradient colors={['#070014', '#3A0A45', '#FF2D6A', '#FF8A1E', bgTheme || '#1A0033']} locations={[0, 0.35, 0.58, 0.72, 1]} style={StyleSheet.absoluteFill} />
-      {Array.from({ length: 22 }).map((_, i) => (
-        <View key={`star-${i}`} style={{ position: 'absolute', left: (i * 53) % 380, top: 16 + (i % 6) * 26, width: i % 4 === 0 ? 3 : 2, height: i % 4 === 0 ? 3 : 2, borderRadius: 2, backgroundColor: '#FFE7B0', opacity: 0.75 }} />
-      ))}
-      {Array.from({ length: 9 }).map((_, i) => (
-        <View key={`ray-${i}`} style={{ position: 'absolute', bottom: '34%', left: '50%', width: 2, height: 220, backgroundColor: 'rgba(255,186,90,0.28)', transform: [{ translateX: -1 }, { rotate: `${-80 + i * 20}deg` }, { translateY: -110 }] }} />
-      ))}
-      <Animated.View style={{ position: 'absolute', bottom: '30%', alignSelf: 'center', width: 230, height: 230, borderRadius: 115, backgroundColor: '#FF4E9A', overflow: 'hidden', transform: [{ scale: pulse }] }}>
-        <LinearGradient colors={['#FFE08A', primaryNeon || '#FF2D95', secondaryNeon || '#FF6A00']} style={StyleSheet.absoluteFill} />
-        {[0, 1, 2, 3, 4, 5].map((i) => (
-          <View key={i} style={{ position: 'absolute', left: 0, right: 0, bottom: 12 + i * 20, height: 6 + i * 2, backgroundColor: '#120018' }} />
-        ))}
-      </Animated.View>
-      <Animated.View style={{ position: 'absolute', top: 86, transform: [{ translateX: slide }] }}>
-        <View style={{ width: 110, height: 26, borderRadius: 14, backgroundColor: 'rgba(255,190,220,0.28)' }} />
-        <View style={{ width: 70, height: 18, borderRadius: 10, marginTop: -8, marginLeft: 28, backgroundColor: 'rgba(255,190,220,0.18)' }} />
-      </Animated.View>
-      <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: '28%', backgroundColor: '#0C0614' }} />
-      {Array.from({ length: 7 }).map((_, i) => (
-        <View key={`sea-${i}`} style={{ position: 'absolute', bottom: 10 + i * 18, left: 24, right: 24, height: 2, backgroundColor: i % 2 ? '#00E5FF' : '#FF6AD5', opacity: 0.4 + (6 - i) * 0.06 }} />
-      ))}
+    <View style={[StyleSheet.absoluteFill, { backgroundColor: bgTheme, overflow: 'hidden', alignItems: 'center' }]} pointerEvents="none">
+      <View style={{ position: 'absolute', bottom: '35%', width: 220, height: 220, borderRadius: 110, backgroundColor: secondaryNeon, shadowColor: secondaryNeon, shadowOpacity: 0.8, shadowRadius: 30, elevation: 10 }}>
+        <LinearGradient colors={[primaryNeon, secondaryNeon]} style={{ flex: 1, borderRadius: 110 }} />
+        <View style={{ position: 'absolute', bottom: 10, width: '100%', height: 4, backgroundColor: bgTheme }} />
+        <View style={{ position: 'absolute', bottom: 25, width: '100%', height: 6, backgroundColor: bgTheme }} />
+        <View style={{ position: 'absolute', bottom: 45, width: '100%', height: 8, backgroundColor: bgTheme }} />
+        <View style={{ position: 'absolute', bottom: 70, width: '100%', height: 10, backgroundColor: bgTheme }} />
+      </View>
+      <LinearGradient colors={['transparent', bgTheme]} style={{ position: 'absolute', top: '60%', width: '100%', height: '20%' }} />
     </View>
   );
 };
@@ -873,31 +621,22 @@ const SynthwaveGrid = ({ isPlaying, primaryNeon, secondaryNeon, bgTheme }: any) 
 
 const MatrixRainBg = ({ isPlaying, primaryNeon, bgTheme }: any) => {
   const drop = useSharedValue(0);
-  const SPAN = 640;
-  const glyphs = '01アイウエオカキクケコサシスセソ<>/{}[]#$%';
-  const cols = useMemo(() => {
-    const width = Math.max(Dimensions.get('window').width, Dimensions.get('window').height, 900);
-    const count = Math.ceil(width / 14) + 4;
-    return Array.from({ length: count }).map((_, i) => ({
-      x: i * 14,
-      top: (i * 47) % SPAN,
-      text: Array.from({ length: 22 }, (_, k) => glyphs[(i * 5 + k * 3) % glyphs.length]).join('\n'),
-    }));
-  }, []);
+  const SPAN = 360;
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout> | null = null;
     timer = setTimeout(() => {
       drop.value = 0;
-      drop.value = withRepeat(withTiming(SPAN, { duration: isPlaying ? 4200 : 7600, easing: REasing.linear }), -1, false);
+      drop.value = withRepeat(withTiming(SPAN, { duration: isPlaying ? 2600 : 5200, easing: REasing.linear }), -1, false);
     }, 180);
     return () => { if (timer) clearTimeout(timer); cancelAnimation(drop); };
   }, [isPlaying]);
   const style = useAnimatedStyle(() => ({ transform: [{ translateY: drop.value }] }));
+  const cols = useMemo(() => Array.from({ length: 16 }).map((_, i) => ({ x: i * 28, h: 70 + (i % 5) * 28, top: (i % 4) * 70 })), []);
   return (
     <View style={[StyleSheet.absoluteFill, { backgroundColor: bgTheme, overflow: 'hidden' }]} pointerEvents="none">
-      <Reanimated.View style={[{ position: 'absolute', top: -SPAN, left: 0, width: '140%', height: SPAN * 3 }, style]}>
+      <Reanimated.View style={[{ position: 'absolute', top: -SPAN, left: 0, right: 0, height: SPAN * 3 }, style]}>
         {[0, 1, 2].map((copy) => cols.map((c, i) => (
-          <Text key={`${copy}-${i}`} style={{ position: 'absolute', left: c.x, top: copy * SPAN + c.top, color: i % 7 === 0 ? '#D8FFE4' : primaryNeon, opacity: 0.55, fontSize: 11, lineHeight: 13 }}>{c.text}</Text>
+          <View key={`${copy}-${i}`} style={{ position: 'absolute', left: c.x, top: copy * SPAN + c.top, width: 2, height: c.h, backgroundColor: primaryNeon, opacity: 0.45 }} />
         )))}
       </Reanimated.View>
     </View>
@@ -987,8 +726,6 @@ const RingFx = ({ barValues, color, size = 160 }: any) => {
 
 const PulseFx = ({ barValues, color, size = 160 }: any) => {
   const spin = useSpin(1300);
-  const rot = spin.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] });
-  const core = (barValues[0] || barValues[0]).interpolate({ inputRange: [0, SEGMENTS_PER_BAR], outputRange: [0.72, 1.28], extrapolate: 'clamp' });
   return (
     <View pointerEvents="none" style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
       {[0, 1, 2].map((i) => {
@@ -997,72 +734,46 @@ const PulseFx = ({ barValues, color, size = 160 }: any) => {
         const box = size * (0.42 + i * 0.2);
         return <Animated.View key={i} style={{ position: 'absolute', width: box, height: box, borderRadius: box, borderWidth: 2, borderColor: color, opacity, transform: [{ scale }] }} />;
       })}
-      <Animated.View style={{ position: 'absolute', width: size, height: size, alignItems: 'center', justifyContent: 'center', transform: [{ rotate: rot }] }}>
-        {Array.from({ length: 6 }).map((_, i) => (
-          <View key={`pdot-${i}`} style={{ position: 'absolute', width: Math.max(4, size * 0.05), height: Math.max(4, size * 0.05), borderRadius: 4, backgroundColor: color, opacity: 0.9, transform: [{ rotate: `${i * 60}deg` }, { translateY: size * 0.3 }] }} />
-        ))}
-      </Animated.View>
-      <Animated.View style={{ width: size * 0.16, height: size * 0.16, borderRadius: size, backgroundColor: color, transform: [{ scale: core }] }} />
     </View>
   );
 };
 
 const RoadFx = ({ barValues, color, alt, size = 210 }: any) => {
-  const spin = useSpin(680);
-  const y = spin.interpolate({ inputRange: [0, 1], outputRange: [-26, 8] });
-  const glow = barValues[0].interpolate({ inputRange: [0, SEGMENTS_PER_BAR], outputRange: [0.4, 1], extrapolate: 'clamp' });
+  const spin = useSpin(900);
+  const y = spin.interpolate({ inputRange: [0, 1], outputRange: [-8, 22] });
+  const boost = barValues[0].interpolate({ inputRange: [0, SEGMENTS_PER_BAR], outputRange: [0.35, 1], extrapolate: 'clamp' });
   return (
-    <View pointerEvents="none" style={{ width: size, height: size * 0.78, overflow: 'hidden', alignItems: 'center', justifyContent: 'flex-end' }}>
-      <View style={{ position: 'absolute', bottom: 0, width: size * 0.9, height: size * 0.7, backgroundColor: '#12141C', borderTopLeftRadius: size, borderTopRightRadius: size, transform: [{ scaleX: 0.55 }] }} />
-      <View style={{ position: 'absolute', left: size * 0.22, bottom: 0, width: 3, height: size * 0.68, backgroundColor: alt || color, opacity: 0.9, transform: [{ rotate: '16deg' }] }} />
-      <View style={{ position: 'absolute', right: size * 0.22, bottom: 0, width: 3, height: size * 0.68, backgroundColor: alt || color, opacity: 0.9, transform: [{ rotate: '-16deg' }] }} />
-      <Animated.View style={{ position: 'absolute', bottom: 4, alignItems: 'center', opacity: glow, transform: [{ translateY: y }] }}>
+    <View pointerEvents="none" style={{ width: size, height: size * 0.62, overflow: 'hidden', alignItems: 'center', justifyContent: 'flex-end' }}>
+      <Animated.View style={{ alignItems: 'center', opacity: boost, transform: [{ translateY: y }] }}>
         {Array.from({ length: 7 }).map((_, i) => (
-          <View key={i} style={{ width: 3 + i * 2, height: 7 + i * 3, marginTop: 5 + i * 2, borderRadius: 1, backgroundColor: '#F4F4F4' }} />
+          <View key={i} style={{ width: size * (0.12 + i * 0.12), height: Math.max(2, size * 0.018), marginTop: size * 0.03, backgroundColor: i % 2 ? alt : color }} />
         ))}
       </Animated.View>
-      <Animated.View style={{ position: 'absolute', bottom: size * 0.08, width: size * 0.16, height: 8, borderRadius: 4, backgroundColor: color, opacity: glow }} />
     </View>
   );
 };
 
 const SpiralFx = ({ barValues, color, size = 160 }: any) => {
   const spin = useSpin(2800);
-  const back = useSpin(1800);
   const rot = spin.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] });
-  const rotB = back.interpolate({ inputRange: [0, 1], outputRange: ['360deg', '0deg'] });
   const scale = (barValues[1] || barValues[0]).interpolate({ inputRange: [0, SEGMENTS_PER_BAR], outputRange: [0.75, 1.12], extrapolate: 'clamp' });
-  const core = (barValues[0] || barValues[0]).interpolate({ inputRange: [0, SEGMENTS_PER_BAR], outputRange: [0.7, 1.3], extrapolate: 'clamp' });
   return (
-    <Animated.View pointerEvents="none" style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center', transform: [{ scale }] }}>
-      <Animated.View style={{ position: 'absolute', width: size, height: size, alignItems: 'center', justifyContent: 'center', transform: [{ rotate: rot }] }}>
-        {[0.3, 0.48, 0.66, 0.84].map((k, i) => (
-          <View key={`sa-${i}`} style={{ position: 'absolute', width: size * k, height: size * k, borderRadius: size, borderWidth: 2, borderColor: 'transparent', borderTopColor: color, borderRightColor: i % 2 ? color : 'transparent' }} />
-        ))}
-        {Array.from({ length: 6 }).map((_, i) => (
-          <View key={`sd-${i}`} style={{ position: 'absolute', width: Math.max(3, size * 0.04), height: Math.max(3, size * 0.04), borderRadius: 3, backgroundColor: color, transform: [{ rotate: `${i * 60}deg` }, { translateY: size * (0.16 + (i % 3) * 0.1) }] }} />
-        ))}
-      </Animated.View>
-      <Animated.View style={{ position: 'absolute', width: size, height: size, alignItems: 'center', justifyContent: 'center', transform: [{ rotate: rotB }] }}>
-        {[0.4, 0.72].map((k, i) => (
-          <View key={`sb-${i}`} style={{ position: 'absolute', width: size * k, height: size * k, borderRadius: size, borderWidth: 2, borderColor: 'transparent', borderBottomColor: color, borderLeftColor: color, opacity: 0.75 }} />
-        ))}
-      </Animated.View>
-      <Animated.View style={{ width: size * 0.12, height: size * 0.12, borderRadius: size, backgroundColor: color, transform: [{ scale: core }] }} />
+    <Animated.View pointerEvents="none" style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center', transform: [{ rotate: rot }, { scale }] }}>
+      {[0.34, 0.55, 0.76].map((k, i) => (
+        <View key={i} style={{ position: 'absolute', width: size * k, height: size * k, borderRadius: size, borderWidth: 2, borderColor: 'transparent', borderTopColor: color, borderLeftColor: i === 1 ? color : 'transparent' }} />
+      ))}
     </Animated.View>
   );
 };
 
-const SparksFx = ({ barValues, color, alt, size = 160, count = 8 }: any) => {
+const SparksFx = ({ barValues, color, alt, size = 160 }: any) => {
   const spin = useSpin(1700);
   const rot = spin.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] });
   return (
     <Animated.View pointerEvents="none" style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center', transform: [{ rotate: rot }] }}>
-      {Array.from({ length: count }).map((_, i) => {
-        const reach = count > 8 ? 0.44 : 0.4;
-        const dot = count > 8 ? 0.055 : 0.045;
-        const dist = (barValues[i % barValues.length] || barValues[0]).interpolate({ inputRange: [0, SEGMENTS_PER_BAR], outputRange: [size * (count > 8 ? 0.12 : 0.1), size * reach], extrapolate: 'clamp' });
-        return <Animated.View key={i} style={{ position: 'absolute', width: Math.max(4, size * dot), height: Math.max(4, size * dot), borderRadius: 6, backgroundColor: i % 2 ? alt : color, transform: [{ rotate: `${(360 / count) * i}deg` }, { translateY: dist }] }} />;
+      {Array.from({ length: 8 }).map((_, i) => {
+        const dist = (barValues[i % barValues.length] || barValues[0]).interpolate({ inputRange: [0, SEGMENTS_PER_BAR], outputRange: [size * 0.1, size * 0.4], extrapolate: 'clamp' });
+        return <Animated.View key={i} style={{ position: 'absolute', width: Math.max(4, size * 0.045), height: Math.max(4, size * 0.045), borderRadius: 6, backgroundColor: i % 2 ? alt : color, transform: [{ rotate: `${i * 45}deg` }, { translateY: dist }] }} />;
       })}
     </Animated.View>
   );
@@ -1071,21 +782,12 @@ const SparksFx = ({ barValues, color, alt, size = 160, count = 8 }: any) => {
 const RadarFx = ({ barValues, color, size = 160 }: any) => {
   const spin = useSpin(1900);
   const rot = spin.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] });
-  const opacity = barValues[0].interpolate({ inputRange: [0, SEGMENTS_PER_BAR], outputRange: [0.35, 1], extrapolate: 'clamp' });
+  const opacity = barValues[0].interpolate({ inputRange: [0, SEGMENTS_PER_BAR], outputRange: [0.3, 1], extrapolate: 'clamp' });
   return (
     <View pointerEvents="none" style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
-      {[0.32, 0.55, 0.8].map((k) => (
-        <View key={k} style={{ position: 'absolute', width: size * k, height: size * k, borderRadius: size, borderWidth: 1, borderColor: color, opacity: 0.4 }} />
-      ))}
-      <View style={{ position: 'absolute', width: size * 0.86, height: 1, backgroundColor: color, opacity: 0.25 }} />
-      <View style={{ position: 'absolute', width: 1, height: size * 0.86, backgroundColor: color, opacity: 0.25 }} />
-      {barValues.slice(0, 6).map((b: any, i: number) => {
-        const dist = b.interpolate({ inputRange: [0, SEGMENTS_PER_BAR], outputRange: [size * 0.08, size * 0.36], extrapolate: 'clamp' });
-        const op = b.interpolate({ inputRange: [0, SEGMENTS_PER_BAR], outputRange: [0.15, 1], extrapolate: 'clamp' });
-        return <Animated.View key={i} style={{ position: 'absolute', width: i % 2 ? 7 : 5, height: i % 2 ? 7 : 5, borderRadius: 4, backgroundColor: color, opacity: op, transform: [{ rotate: `${i * 60}deg` }, { translateY: dist }] }} />;
-      })}
+      <View style={{ position: 'absolute', width: size * 0.88, height: size * 0.88, borderRadius: size, borderWidth: 1, borderColor: color, opacity: 0.35 }} />
       <Animated.View style={{ width: size, height: size, alignItems: 'center', transform: [{ rotate: rot }] }}>
-        <Animated.View style={{ width: Math.max(3, size * 0.03), height: size * 0.42, backgroundColor: color, opacity, borderRadius: 2 }} />
+        <Animated.View style={{ width: Math.max(2, size * 0.02), height: size * 0.44, backgroundColor: color, opacity }} />
       </Animated.View>
     </View>
   );
@@ -1112,67 +814,20 @@ const SynthFx = ({ barValues, size = 220 }: any) => {
   );
 };
 
-const VinylStage = ({ barValues, color, alt, playing }: any) => {
-  const spin = useRef(new Animated.Value(0)).current;
-  useEffect(() => {
-    let loop: Animated.CompositeAnimation | null = null;
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    spin.stopAnimation();
-    spin.setValue(0);
-    timer = setTimeout(() => {
-      loop = Animated.loop(Animated.timing(spin, {
-        toValue: 1,
-        duration: playing ? 1600 : 9000,
-        easing: Easing.linear,
-        useNativeDriver: true,
-      }));
-      loop.start();
-    }, 40);
-    return () => {
-      if (timer) clearTimeout(timer);
-      loop?.stop();
-      spin.stopAnimation();
-      spin.setValue(0);
-    };
-  }, [playing, spin]);
-  const rot = spin.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] });
-  const flare = spin.interpolate({ inputRange: [0, 0.5, 1], outputRange: [0.25, 0.9, 0.25] });
-  return (
-    <View style={{ width: 176, height: 176, alignItems: 'center', justifyContent: 'center' }}>
-      {barValues.slice(0, 8).map((b: any, i: number) => {
-        const dist = b.interpolate({ inputRange: [0, SEGMENTS_PER_BAR], outputRange: [28, 78], extrapolate: 'clamp' });
-        const op = b.interpolate({ inputRange: [0, SEGMENTS_PER_BAR], outputRange: [0.2, 1], extrapolate: 'clamp' });
-        return <Animated.View key={i} pointerEvents="none" style={{ position: 'absolute', width: 6, height: 6, borderRadius: 3, backgroundColor: i % 2 ? alt : color, opacity: op, transform: [{ rotate: `${i * 45}deg` }, { translateY: dist }] }} />;
-      })}
-      <Animated.View style={{ width: 148, height: 148, borderRadius: 74, backgroundColor: '#0A0A0C', borderWidth: 5, borderColor: color, alignItems: 'center', justifyContent: 'center', transform: [{ rotate: rot }] }}>
-        {[46, 78, 108].map((d) => (
-          <View key={d} style={{ position: 'absolute', width: d, height: d, borderRadius: d, borderWidth: 1, borderColor: 'rgba(255,255,255,0.28)' }} />
-        ))}
-        <View style={{ width: 8, height: 148, backgroundColor: 'rgba(255,255,255,0.08)' }} />
-        <Animated.View style={{ position: 'absolute', width: 46, height: 46, borderRadius: 23, backgroundColor: alt, opacity: flare }} />
-        <View style={{ position: 'absolute', width: 10, height: 10, borderRadius: 5, backgroundColor: '#111' }} />
-      </Animated.View>
-    </View>
-  );
-};
-
-const DRIVE_FX = ['ring', 'pulse', 'spiral', 'sparks', 'radar', 'synth', 'vinyl'];
+const DRIVE_FX = ['ring', 'pulse', 'road', 'spiral', 'sparks', 'radar', 'synth', 'vinyl'];
 
 const DriveFx = ({ styleName, barValues, primaryNeon, secondaryNeon }: any) => {
   if (!styleName || styleName === 'off' || styleName === 'halo' || styleName === 'orb' || DRIVE_FX.includes(styleName)) return null;
   const bars = barValues.slice(0, 10);
   if (styleName === 'wave') {
     return (
-      <View pointerEvents="none" style={{ height: 96, width: 280, marginBottom: 8, alignItems: 'center', justifyContent: 'center' }}>
-        {[0, 1].map((layer) => (
-          <View key={layer} style={{ position: 'absolute', flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-            {barValues.slice(0, 14).map((b: any, i: number) => {
-              const lift = b.interpolate({ inputRange: [0, SEGMENTS_PER_BAR], outputRange: [6, -18 - layer * 8], extrapolate: 'clamp' });
-              const size = 6 + (i % 3);
-              return <Animated.View key={`${layer}-${i}`} style={{ width: size, height: size, borderRadius: size, backgroundColor: layer ? secondaryNeon : primaryNeon, opacity: layer ? 0.45 : 0.95, transform: [{ translateY: lift }] }} />;
-            })}
-          </View>
-        ))}
+      <View pointerEvents="none" style={{ height: 72, width: 230, marginBottom: 8, alignItems: 'center', justifyContent: 'center' }}>
+        {[0, 1, 2].map((i) => {
+          const src = barValues[i * 4] || barValues[0];
+          const scale = src.interpolate({ inputRange: [0, SEGMENTS_PER_BAR], outputRange: [0.45 + i * 0.12, 1.25 + i * 0.18], extrapolate: 'clamp' });
+          const opacity = src.interpolate({ inputRange: [0, SEGMENTS_PER_BAR], outputRange: [0.18, 0.75 - i * 0.16], extrapolate: 'clamp' });
+          return <Animated.View key={`ripple-${i}`} style={{ position: 'absolute', width: 64 + i * 52, height: 26 + i * 12, borderRadius: 40, borderWidth: 3, borderColor: i === 1 ? secondaryNeon : primaryNeon, opacity, transform: [{ scaleX: scale }] }} />;
+        })}
       </View>
     );
   }
@@ -1225,76 +880,44 @@ const DriveFx = ({ styleName, barValues, primaryNeon, secondaryNeon }: any) => {
   );
 };
 
-const WinampEq = ({ barValues, width = 160 }: any) => {
-  const height = MAIN_VIZ_H;
-  const rows = 10;
-  const gap = 1;
-  const colGap = 2;
-  const pad = 4;
-  const inner = Math.max(48, width - pad);
-  const count = Math.max(16, Math.min(32, Math.floor((inner + colGap) / 7)));
-  const colW = Math.max(3, (inner - (count - 1) * colGap) / count);
-  const segH = Math.max(3, Math.floor((height - (rows - 1) * gap) / rows));
-  const cols = Array.from({ length: count }, (_, i) => barValues[i % barValues.length]);
-  return (
-    <View style={{ height, width, flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'flex-start', gap: colGap, backgroundColor: '#050805', paddingHorizontal: 2 }}>
-      {cols.map((barAnim: any, barIdx: number) => (
-        <View key={`wa-col-${barIdx}`} style={{ width: colW, height, justifyContent: 'flex-end', gap }}>
-          {Array.from({ length: rows }).map((_, segIdx) => {
-            const fromBottom = rows - 1 - segIdx;
-            const on = ((fromBottom + 1) / rows) * SEGMENTS_PER_BAR;
-            const start = Math.max(0, on - 1.1);
-            const end = Math.max(start + 0.35, on);
-            const opacity = barAnim.interpolate({ inputRange: [start, end], outputRange: [0.35, 1], extrapolate: 'clamp' });
-            const color = fromBottom >= rows - 1 ? '#FF4040' : fromBottom >= rows - 3 ? '#E6FF3A' : '#3CFF4A';
-            const dim = fromBottom >= rows - 1 ? '#2A0C0C' : fromBottom >= rows - 3 ? '#242808' : '#0A2410';
-            return (
-              <View key={`wa-${barIdx}-${segIdx}`} style={{ width: colW, height: segH, borderRadius: 1, backgroundColor: dim }}>
-                <Animated.View style={{ flex: 1, borderRadius: 1, backgroundColor: color, opacity }} />
-              </View>
-            );
-          })}
-        </View>
-      ))}
-    </View>
-  );
-};
-
-const CubeEqualizer = ({ barValues, primaryNeon, secondaryNeon, height = 92, large = false, rainbow = false }: any) => {
+const CubeEqualizer = ({ barValues, primaryNeon, secondaryNeon, height = 56, large = false }: any) => {
   const cols = [...barValues.slice(CUBE_COLS, CUBE_COLS + 3), ...barValues.slice(0, CUBE_COLS)];
-  const rows = 8;
-  const gap = large ? 3 : 2;
-  const slot = Math.floor((height - (rows - 1) * gap) / rows);
-  const face = large ? 12 : Math.max(7, slot - 1);
-  const side = large ? 3 : 2;
-  const top = large ? 3 : 2;
-  const colW = face + side;
+  const sideW = large ? 4 : 1;
+  const topH = large ? 3 : 1;
+  const gap = large ? 3 : 1;
+  const slot = Math.floor((height - (CUBE_ROWS - 1) * gap) / CUBE_ROWS);
+  const faceH = Math.max(2, slot - topH);
+  const faceW = large ? 14 : 6;
+  const colW = faceW + sideW;
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'flex-end', height, gap: large ? 3 : 2, justifyContent: 'center' }}>
-      {cols.map((barAnim: any, barIdx: number) => (
-        <View key={`cube-col-${barIdx}`} style={{ width: colW, height, justifyContent: 'flex-end', gap }}>
-          {Array.from({ length: rows }).map((_, segIdx) => {
-            const fromBottom = rows - 1 - segIdx;
-            const on = ((fromBottom + 1) / rows) * SEGMENTS_PER_BAR;
-            const start = Math.max(0, on - 1.1);
-            const end = Math.max(start + 0.35, on);
-            const opacity = barAnim.interpolate({ inputRange: [start, end], outputRange: [0.16, 1], extrapolate: 'clamp' });
-            const lit = rainbow ? RAINBOW[fromBottom] : (fromBottom >= rows - 2 ? secondaryNeon : primaryNeon);
-            return (
-              <Animated.View key={`cube-${barIdx}-${segIdx}`} style={{ width: colW, height: slot, opacity }}>
-                <View style={{ position: 'absolute', top: 0, left: side, width: face, height: top, backgroundColor: lit }} />
-                <View style={{ position: 'absolute', top, left: 0, width: face, height: Math.max(2, slot - top), backgroundColor: lit }} />
-                <View style={{ position: 'absolute', top, right: 0, width: side, height: Math.max(2, slot - top), backgroundColor: '#07070C' }} />
-              </Animated.View>
-            );
-          })}
-        </View>
-      ))}
+    <View style={{ flexDirection: 'row', alignItems: 'flex-end', height, gap: large ? 4 : 2, justifyContent: 'center' }}>
+      {cols.map((barAnim: any, barIdx: number) => {
+        const drop = barAnim.interpolate({ inputRange: [0, SEGMENTS_PER_BAR], outputRange: [height - slot, 0], extrapolate: 'clamp' });
+        return (
+          <View key={`cube-col-${barIdx}`} style={{ width: colW, height, overflow: 'hidden' }}>
+            <Animated.View style={{ position: 'absolute', left: 0, bottom: 0, height, width: colW, transform: [{ translateY: drop }] }}>
+              <View style={{ height, width: colW, justifyContent: 'space-between' }}>
+                {Array.from({ length: CUBE_ROWS }).map((_, segIdx) => {
+                  const fromTop = CUBE_ROWS - 1 - segIdx;
+                  const lit = fromTop > 10 ? secondaryNeon : primaryNeon;
+                  return (
+                    <View key={`cube-${barIdx}-${segIdx}`} style={{ width: colW, height: slot }}>
+                      <View style={{ position: 'absolute', top: 0, left: sideW, width: faceW, height: topH, backgroundColor: lit, opacity: 0.55 }} />
+                      <View style={{ position: 'absolute', top: topH, left: 0, width: faceW, height: faceH, backgroundColor: lit }} />
+                      <View style={{ position: 'absolute', top: topH, right: 0, width: sideW, height: faceH, backgroundColor: '#05050A' }} />
+                    </View>
+                  );
+                })}
+              </View>
+            </Animated.View>
+          </View>
+        );
+      })}
     </View>
   );
 };
 
-const MinecraftEqualizer = ({ barValues, height = 92, large = false }: any) => {
+const MinecraftEqualizer = ({ barValues, height = 56, large = false }: any) => {
   const cols = [...barValues.slice(CUBE_COLS, CUBE_COLS + 3), ...barValues.slice(0, CUBE_COLS)];
   const gap = large ? 2 : 1;
   const blockH = large ? 11 : Math.max(3, Math.floor((height - (CUBE_ROWS - 1) * gap) / CUBE_ROWS));
@@ -1337,147 +960,54 @@ const MinecraftEqualizer = ({ barValues, height = 92, large = false }: any) => {
   );
 };
 
-const HeaderVinyl = ({ barValues, primaryNeon, secondaryNeon }: any) => {
-  const spin = useSpin(1600);
-  const rot = spin.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] });
-  const flare = spin.interpolate({ inputRange: [0, 0.5, 1], outputRange: [0.35, 1, 0.35] });
-  return (
-    <View style={{ width: 96, height: 96, alignItems: 'center', justifyContent: 'center' }}>
-      {barValues.slice(0, 8).map((b: any, i: number) => {
-        const dist = b.interpolate({ inputRange: [0, SEGMENTS_PER_BAR], outputRange: [28, 46], extrapolate: 'clamp' });
-        const op = b.interpolate({ inputRange: [0, SEGMENTS_PER_BAR], outputRange: [0.2, 1], extrapolate: 'clamp' });
-        return <Animated.View key={i} pointerEvents="none" style={{ position: 'absolute', width: 6, height: 6, borderRadius: 3, backgroundColor: i % 2 ? secondaryNeon : primaryNeon, opacity: op, transform: [{ rotate: `${i * 45}deg` }, { translateY: dist }] }} />;
-      })}
-      <Animated.View style={{ width: 74, height: 74, borderRadius: 37, backgroundColor: '#0A0A0C', borderWidth: 4, borderColor: primaryNeon, alignItems: 'center', justifyContent: 'center', transform: [{ rotate: rot }] }}>
-        {[24, 42, 58].map((d) => (
-          <View key={d} style={{ position: 'absolute', width: d, height: d, borderRadius: d, borderWidth: 1, borderColor: 'rgba(255,255,255,0.35)' }} />
-        ))}
-        <View style={{ width: 4, height: 74, backgroundColor: 'rgba(255,255,255,0.14)' }} />
-        <Animated.View style={{ position: 'absolute', width: 22, height: 22, borderRadius: 11, backgroundColor: secondaryNeon, opacity: flare }} />
-        <View style={{ position: 'absolute', width: 7, height: 7, borderRadius: 4, backgroundColor: '#111' }} />
-      </Animated.View>
-    </View>
-  );
-};
-
-const HeaderHalo = ({ barValues, primaryNeon, secondaryNeon }: any) => {
-  const spin = useSpin(1800);
-  const rot = spin.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] });
-  const core = barValues[0].interpolate({ inputRange: [0, SEGMENTS_PER_BAR], outputRange: [0.7, 1.25], extrapolate: 'clamp' });
-  return (
-    <View style={{ width: 92, height: 92, alignItems: 'center', justifyContent: 'center' }}>
-      {[0, 1, 2].map((i) => {
-        const scale = barValues[i * 3].interpolate({ inputRange: [0, SEGMENTS_PER_BAR], outputRange: [0.4, 1.18], extrapolate: 'clamp' });
-        const opacity = barValues[i * 3].interpolate({ inputRange: [0, SEGMENTS_PER_BAR], outputRange: [0.22, 0.95], extrapolate: 'clamp' });
-        const size = 30 + i * 22;
-        return <Animated.View key={i} style={{ position: 'absolute', width: size, height: size, borderRadius: size / 2, borderWidth: 2, borderColor: i === 1 ? secondaryNeon : primaryNeon, opacity, transform: [{ scale }] }} />;
-      })}
-      <Animated.View style={{ position: 'absolute', width: 72, height: 72, borderRadius: 36, borderWidth: 3, borderColor: 'transparent', borderTopColor: primaryNeon, borderRightColor: secondaryNeon, transform: [{ rotate: rot }] }} />
-      <Animated.View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: primaryNeon, transform: [{ scale: core }] }} />
-    </View>
-  );
-};
-
-const MAIN_VIZ_H = 70;
-
-const mainVizBox = (styleName: string) => {
-  if (styleName === 'cubes' || styleName === 'rainbow') return { w: 166, h: 92 };
-  if (styleName === 'minecraft') return { w: 140, h: 92 };
-  if (styleName === 'winamp') return { w: 108, h: 92 };
-  if (styleName === 'bars') return { w: 136, h: 68 };
-  if (styleName === 'wave') return { w: 152, h: 68 };
-  if (styleName === 'dots') return { w: 125, h: 68 };
-  if (styleName === 'halo') return { w: 92, h: 92 };
-  if (styleName === 'vinyl') return { w: 96, h: 96 };
-  if (styleName === 'sparks') return { w: 100, h: 100 };
-  if (styleName === 'synth') return { w: 96, h: 70 };
-  if (styleName === 'ring' || styleName === 'pulse' || styleName === 'spiral' || styleName === 'radar') return { w: 82, h: 82 };
-  return { w: 120, h: 68 };
-};
-
-const CIRCLE_VIZ = ['halo', 'vinyl', 'sparks', 'synth', 'ring', 'pulse', 'spiral', 'radar'];
-
-const FitMainViz = ({ slotW, styleName, children }: any) => {
-  const box = mainVizBox(styleName);
-  const slot = slotW > 0 ? slotW : box.w;
-  const scale = Math.min(1, slot / box.w, MAIN_VIZ_H / box.h);
-  const fitted = scale < 0.98;
-  const drawnW = Math.max(1, Math.round(box.w * (fitted ? scale : 1)));
-  const drawnH = Math.max(1, Math.round(box.h * (fitted ? scale : 1)));
-  const nudge = CIRCLE_VIZ.includes(styleName) ? Math.max(0, Math.round((slot - Math.min(drawnW, slot)) / 2)) : 0;
-  const inner = !fitted ? children : (
-    <View style={{ width: drawnW, height: drawnH, overflow: 'hidden' }}>
-      <View style={{ position: 'absolute', right: 0, bottom: 0, width: box.w, height: box.h, transformOrigin: 'right bottom', transform: [{ scale }] }}>
-        {children}
-      </View>
-    </View>
-  );
-  if (!nudge) return <>{inner}</>;
-  return <View style={{ marginRight: nudge }}>{inner}</View>;
-};
-
-const PickedRow = ({ picked, gap = 8, contentStyle, children }: any) => {
-  const ref = useRef<ScrollView>(null);
-  const xs = useRef<Record<string, number>>({});
-  const go = () => {
-    const x = xs.current[String(picked)];
-    if (typeof x !== 'number') return;
-    ref.current?.scrollTo({ x: Math.max(0, x - 8), animated: false });
-  };
-  useEffect(() => {
-    const a = setTimeout(go, 60);
-    const b = setTimeout(go, 260);
-    return () => { clearTimeout(a); clearTimeout(b); };
-  }, [picked]);
-  return (
-    <ScrollView ref={ref} horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={[{ gap }, contentStyle]} onContentSizeChange={go}>
-      {React.Children.map(children, (child: any) => {
-        const id = child?.props?.testID;
-        if (id == null) return child;
-        return (
-          <View key={String(id)} onLayout={(e) => { xs.current[String(id)] = e.nativeEvent.layout.x; if (String(id) === String(picked)) go(); }}>
-            {child}
-          </View>
-        );
-      })}
-    </ScrollView>
-  );
-};
-
 const HeaderViz = ({ styleName, barValues, primaryNeon, secondaryNeon }: any) => {
   const cols = barValues.slice(0, 12);
   if (!styleName || styleName === 'off') return null;
-  if (styleName === 'cubes') return <CubeEqualizer barValues={barValues} primaryNeon={primaryNeon} secondaryNeon={secondaryNeon} height={92} />;
-  if (styleName === 'rainbow') return <CubeEqualizer barValues={barValues} primaryNeon={primaryNeon} secondaryNeon={secondaryNeon} height={92} rainbow />;
-  if (styleName === 'minecraft') return <MinecraftEqualizer barValues={barValues} height={92} />;
-  if (styleName === 'halo') return <HeaderHalo barValues={barValues} primaryNeon={primaryNeon} secondaryNeon={secondaryNeon} />;
-  if (DRIVE_FX.includes(styleName) && styleName !== 'vinyl') {
-    const common = { barValues, color: primaryNeon, alt: secondaryNeon, size: styleName === 'synth' || styleName === 'road' ? 92 : 82 };
+  if (styleName === 'cubes') return <CubeEqualizer barValues={barValues} primaryNeon={primaryNeon} secondaryNeon={secondaryNeon} height={56} />;
+  if (styleName === 'minecraft') return <MinecraftEqualizer barValues={barValues} height={56} />;
+  if (styleName === 'halo') {
     return (
-      <View style={{ height: styleName === 'synth' ? 70 : styleName === 'sparks' ? 100 : 82, alignItems: 'center', justifyContent: styleName === 'synth' ? 'flex-end' : 'center' }}>
+      <View style={{ width: 56, height: 56, alignItems: 'center', justifyContent: 'center' }}>
+        {[0, 1, 2].map((i) => {
+          const scale = barValues[i * 3].interpolate({ inputRange: [0, SEGMENTS_PER_BAR], outputRange: [0.35, 1.2], extrapolate: 'clamp' });
+          const opacity = barValues[i * 3].interpolate({ inputRange: [0, SEGMENTS_PER_BAR], outputRange: [0.2, 0.95], extrapolate: 'clamp' });
+          const size = 16 + i * 14;
+          return <Animated.View key={i} style={{ position: 'absolute', width: size, height: size, borderRadius: size / 2, borderWidth: 2, borderColor: i === 1 ? secondaryNeon : primaryNeon, opacity, transform: [{ scale }] }} />;
+        })}
+      </View>
+    );
+  }
+  if (DRIVE_FX.includes(styleName) && styleName !== 'vinyl') {
+    const common = { barValues, color: primaryNeon, alt: secondaryNeon, size: styleName === 'synth' || styleName === 'road' ? 92 : 64 };
+    return (
+      <View style={{ height: 64, alignItems: 'center', justifyContent: 'center' }}>
         {styleName === 'ring' && <RingFx {...common} />}
         {styleName === 'pulse' && <PulseFx {...common} />}
+        {styleName === 'road' && <RoadFx {...common} />}
         {styleName === 'spiral' && <SpiralFx {...common} />}
-        {styleName === 'sparks' && <SparksFx {...common} size={100} count={12} />}
+        {styleName === 'sparks' && <SparksFx {...common} />}
         {styleName === 'radar' && <RadarFx {...common} />}
         {styleName === 'synth' && <SynthFx barValues={barValues} size={96} />}
       </View>
     );
   }
   if (styleName === 'vinyl') {
-    return <HeaderVinyl barValues={barValues} primaryNeon={primaryNeon} secondaryNeon={secondaryNeon} />;
+    return <View style={{ width: 36, height: 36, borderRadius: 18, borderWidth: 3, borderColor: primaryNeon, alignItems: 'center', justifyContent: 'center' }}><View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: secondaryNeon }} /></View>;
   }
-  if (styleName === 'orb' || styleName === 'road') return null;
+  if (styleName === 'orb') {
+    const scale = barValues[2].interpolate({ inputRange: [0, SEGMENTS_PER_BAR], outputRange: [0.55, 1.35], extrapolate: 'clamp' });
+    return <Animated.View style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: primaryNeon, opacity: 0.9, transform: [{ scale }] }} />;
+  }
   if (styleName === 'dots') {
     return (
-      <View style={{ flexDirection: 'row', alignItems: 'flex-end', height: 68, gap: 5 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'flex-end', height: 52, gap: 4 }}>
         {cols.slice(0, 10).map((barAnim: any, i: number) => {
-          const shift = barAnim.interpolate({ inputRange: [0, SEGMENTS_PER_BAR], outputRange: [60, 0], extrapolate: 'clamp' });
+          const shift = barAnim.interpolate({ inputRange: [0, SEGMENTS_PER_BAR], outputRange: [46, 0], extrapolate: 'clamp' });
           return (
-            <View key={i} style={{ width: 8, height: 68, overflow: 'hidden' }}>
-              <Animated.View style={{ height: 68, justifyContent: 'space-between', transform: [{ translateY: shift }] }}>
-                {Array.from({ length: 7 }).map((_, d) => (
-                  <View key={d} style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: i % 2 ? secondaryNeon : primaryNeon }} />
+            <View key={i} style={{ width: 6, height: 52, overflow: 'hidden' }}>
+              <Animated.View style={{ height: 52, justifyContent: 'space-between', transform: [{ translateY: shift }] }}>
+                {Array.from({ length: 6 }).map((_, d) => (
+                  <View key={d} style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: i % 2 ? secondaryNeon : primaryNeon }} />
                 ))}
               </Animated.View>
             </View>
@@ -1488,46 +1018,25 @@ const HeaderViz = ({ styleName, barValues, primaryNeon, secondaryNeon }: any) =>
   }
   if (styleName === 'wave') {
     return (
-      <View style={{ flexDirection: 'row', alignItems: 'flex-end', height: 68, gap: 4 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'flex-end', height: 52, gap: 3 }}>
         {cols.map((barAnim: any, i: number) => {
-          const shift = barAnim.interpolate({ inputRange: [0, SEGMENTS_PER_BAR], outputRange: [64, 0], extrapolate: 'clamp' });
+          const shift = barAnim.interpolate({ inputRange: [0, SEGMENTS_PER_BAR], outputRange: [48, 0], extrapolate: 'clamp' });
           return (
-            <View key={i} style={{ width: 9, height: 68, overflow: 'hidden' }}>
-              <Animated.View style={{ width: 9, height: 68, borderRadius: 8, backgroundColor: i % 2 ? secondaryNeon : primaryNeon, transform: [{ translateY: shift }] }} />
+            <View key={i} style={{ width: 7, height: 52, overflow: 'hidden' }}>
+              <Animated.View style={{ width: 7, height: 52, borderRadius: 8, backgroundColor: i % 2 ? secondaryNeon : primaryNeon, transform: [{ translateY: shift }] }} />
             </View>
           );
         })}
       </View>
     );
   }
-  if (styleName === 'bars') {
-    const barCols = [...barValues.slice(Math.max(0, barValues.length - 5)), ...cols];
-    const rows = RAINBOW.length;
-    return (
-      <View style={{ flexDirection: 'row', alignItems: 'flex-end', height: 68, gap: 3 }}>
-        {barCols.map((barAnim: any, i: number) => (
-          <View key={i} style={{ width: 5, height: 68, justifyContent: 'flex-end', gap: 1 }}>
-            {Array.from({ length: rows }).map((_, segIdx) => {
-              const fromBottom = rows - 1 - segIdx;
-              const on = ((fromBottom + 1) / rows) * SEGMENTS_PER_BAR;
-              const start = Math.max(0, on - 1.1);
-              const end = Math.max(start + 0.35, on);
-              const opacity = barAnim.interpolate({ inputRange: [start, end], outputRange: [0.14, 1], extrapolate: 'clamp' });
-              return <Animated.View key={segIdx} style={{ width: 5, flex: 1, borderRadius: 1, backgroundColor: RAINBOW[fromBottom], opacity }} />;
-            })}
-          </View>
-        ))}
-      </View>
-    );
-  }
-  const barCols = [...barValues.slice(Math.max(0, barValues.length - 5)), ...cols];
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'flex-end', height: 68, gap: 3 }}>
-      {barCols.map((barAnim: any, i: number) => {
-        const shift = barAnim.interpolate({ inputRange: [0, SEGMENTS_PER_BAR], outputRange: [64, 0], extrapolate: 'clamp' });
+    <View style={{ flexDirection: 'row', alignItems: 'flex-end', height: 52, gap: 3 }}>
+      {cols.map((barAnim: any, i: number) => {
+        const shift = barAnim.interpolate({ inputRange: [0, SEGMENTS_PER_BAR], outputRange: [49, 0], extrapolate: 'clamp' });
         return (
-          <View key={i} style={{ width: 5, height: 68, overflow: 'hidden' }}>
-            <Animated.View style={{ width: 5, height: 68, borderRadius: 2, backgroundColor: i > 12 ? secondaryNeon : primaryNeon, transform: [{ translateY: shift }] }} />
+          <View key={i} style={{ width: 4, height: 52, overflow: 'hidden' }}>
+            <Animated.View style={{ width: 4, height: 52, borderRadius: 2, backgroundColor: i > 8 ? secondaryNeon : primaryNeon, transform: [{ translateY: shift }] }} />
           </View>
         );
       })}
@@ -1547,36 +1056,12 @@ const DraggableSpeedWidget = ({ currentSpeed, primaryNeon, windowWidth, windowHe
   const speedScale = posScale || ownScale;
   const clamped = Math.min(currentSpeed, 180);
 
-  const grantX = useSharedValue(0);
-  const grantY = useSharedValue(0);
-  const bounds = useRef({ w: windowWidth, h: windowHeight, bw: size.w, bh: size.h });
-  bounds.current = { w: windowWidth, h: windowHeight, bw: size.w, bh: size.h };
-  const lastTap = useRef(0);
-  const speedDrag = useRef(PanResponder.create({
-    onStartShouldSetPanResponder: () => true,
-    onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dx) > 3 || Math.abs(g.dy) > 3,
-    onPanResponderTerminationRequest: () => false,
-    onPanResponderGrant: () => {
-      grantX.value = speedX.value;
-      grantY.value = speedY.value;
-    },
-    onPanResponderMove: (_, g) => {
-      const box = bounds.current;
-      const maxX = Math.max(0, box.w - box.bw * 0.45);
-      const maxY = Math.max(0, box.h - box.bh * 0.45);
-      speedX.value = Math.min(maxX, Math.max(0, grantX.value + g.dx));
-      speedY.value = Math.min(maxY, Math.max(0, grantY.value + g.dy));
-    },
-    onPanResponderRelease: (_, g) => {
-      if (Math.abs(g.dx) < 8 && Math.abs(g.dy) < 8) {
-        const now = Date.now();
-        if (now - lastTap.current < 420) {
-          speedScale.value = withTiming(speedScale.value > 1.08 ? 1 : 1.32, { duration: 180 });
-          lastTap.current = 0;
-        } else lastTap.current = now;
-      }
-    },
-  })).current;
+  const speedTap = Gesture.Tap()
+    .numberOfTaps(2)
+    .maxDelay(420)
+    .onEnd(() => {
+      speedScale.value = withTiming(speedScale.value > 1.08 ? 1 : 1.32, { duration: 180 });
+    });
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ translateX: speedX.value }, { translateY: speedY.value }, { scale: speedScale.value }],
@@ -1589,7 +1074,8 @@ const DraggableSpeedWidget = ({ currentSpeed, primaryNeon, windowWidth, windowHe
   const round = speedStyle === 'dial' || speedStyle === 'arc' || speedStyle === 'ticks';
 
   return (
-    <Reanimated.View {...speedDrag.panHandlers} style={[animatedStyle, {
+    <GestureDetector gesture={speedTap}>
+      <Reanimated.View style={[animatedStyle, {
         width: size.w,
         height: size.h,
         backgroundColor: speedStyle === 'digits' ? 'rgba(0,0,0,0.35)' : 'rgba(10, 10, 20, 0.8)',
@@ -1642,33 +1128,26 @@ const DraggableSpeedWidget = ({ currentSpeed, primaryNeon, windowWidth, windowHe
           </>
         )}
       </Reanimated.View>
+    </GestureDetector>
   );
 };
 
 const VinylRecord = ({ isPlaying, artwork, primaryNeon, vinylStyle }: any) => {
   const spinAnim = useRef(new Animated.Value(0)).current;
   useEffect(() => {
-    let loop: Animated.CompositeAnimation | null = null;
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    spinAnim.stopAnimation();
-    if (!isPlaying) return;
-    spinAnim.setValue(0);
-    timer = setTimeout(() => {
-      loop = Animated.loop(Animated.timing(spinAnim, {
-        toValue: 1,
-        duration: 4000,
-        easing: Easing.linear,
-        useNativeDriver: true,
-      }));
-      loop.start();
-    }, 40);
-    return () => {
-      if (timer) clearTimeout(timer);
-      loop?.stop();
-      spinAnim.stopAnimation();
+    let alive = true;
+    const spinOnce = () => {
+      if (!alive) return;
       spinAnim.setValue(0);
+      Animated.timing(spinAnim, { toValue: 1, duration: 4000, easing: Easing.linear, useNativeDriver: true }).start(({ finished }) => {
+        if (finished && alive) spinOnce();
+      });
     };
-  }, [isPlaying, spinAnim]);
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    if (isPlaying) timer = setTimeout(spinOnce, 180);
+    else spinAnim.stopAnimation();
+    return () => { alive = false; if (timer) clearTimeout(timer); spinAnim.stopAnimation(); };
+  }, [isPlaying]);
 
   const rotate = spinAnim.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] });
   const isGold = vinylStyle === 'gold';
@@ -1761,8 +1240,7 @@ function SeekerBeatMain() {
   const [driveWeatherFx, setDriveWeatherFx] = useState(true);
   const [driveBg, setDriveBg] = useState<'aurora'|'dust'|'sunset'|'pulse'|'grid'|'rain'|'stars'|'miami'|'embers'|'none'>('aurora'); 
 
-  const [eqStyle, setEqStyle] = useState<'bars' | 'cubes' | 'rainbow' | 'minecraft' | 'halo' | 'wave' | 'orb' | 'dots' | 'ring' | 'pulse' | 'road' | 'spiral' | 'sparks' | 'radar' | 'synth' | 'vinyl' | 'winamp' | 'off'>('bars');
-  const [driveEqStyle, setDriveEqStyle] = useState<'bars' | 'cubes' | 'minecraft' | 'halo' | 'wave' | 'orb' | 'dots' | 'ring' | 'pulse' | 'road' | 'spiral' | 'sparks' | 'radar' | 'synth' | 'vinyl' | 'off'>('ring');
+  const [eqStyle, setEqStyle] = useState<'bars' | 'cubes' | 'minecraft' | 'halo' | 'wave' | 'orb' | 'dots' | 'ring' | 'pulse' | 'road' | 'spiral' | 'sparks' | 'radar' | 'synth' | 'vinyl' | 'off'>('bars');
   const [vinylStyle, setVinylStyle] = useState<'classic' | 'gold' | 'neon' | 'off'>('classic');
 
   const [weatherData, setWeatherData] = useState<any>(null);
@@ -1776,22 +1254,6 @@ function SeekerBeatMain() {
   const [isSearchingDisco, setIsSearchingDisco] = useState(false);
   
   const [artistBio, setArtistBio] = useState<any>(null);
-  const [ytClip, setYtClip] = useState<{ id: string; title: string } | null>(null);
-  const [ytBusy, setYtBusy] = useState(false);
-  const [ytTall, setYtTall] = useState(false);
-  const ytRef = useRef<any>(null);
-  const ytIndexRef = useRef(-1);
-  const ytEndGuard = useRef(0);
-  const [hubOpen, setHubOpen] = useState(false);
-  const [hubAuto, setHubAuto] = useState(false);
-  const [hubIndex, setHubIndex] = useState(0);
-  const [hubPos, setHubPos] = useState(0);
-  const [hubDur, setHubDur] = useState(0);
-  const hubSlide = useRef(new Animated.Value(200)).current;
-  const discoRef = useRef<any[]>([]);
-  const hubRef = useRef({ open: false, auto: false, index: 0, started: 0 });
-  const playHubAtRef = useRef<(n: number) => void>(() => {});
-  const hubBarW = useRef(1);
   
   const [isAutoStart, setIsAutoStart] = useState(false); 
   const [isBgPlayEnabled, setIsBgPlayEnabled] = useState(true); 
@@ -1907,7 +1369,6 @@ function SeekerBeatMain() {
 
   const [pulseEffectIndex, setPulseEffectIndex] = useState(0);
   const [titleWidth, setTitleWidth] = useState(168);
-  const [vizSlotW, setVizSlotW] = useState(140);
   const pulseLoopRef = useRef<Animated.CompositeAnimation | null>(null);
   
   const tickerLoopRef = useRef<Animated.CompositeAnimation | null>(null); 
@@ -2092,194 +1553,55 @@ function SeekerBeatMain() {
   }, [currentStation]);
 
   const fetchDiscography = async (query: string) => {
-    const term = query.trim();
-    if (!term) return;
+    if (!query.trim()) return;
     setIsSearchingDisco(true);
     setArtistBio(null);
     Haptics.selectionAsync();
-    const q = encodeURIComponent(term);
-    const pack = (trackId: string, trackName: string, artistName: string, collectionName: string, artworkUrl100: string, previewUrl: string) => ({
-      trackId, trackName, artistName, collectionName, artworkUrl100, previewUrl,
-    });
+    
     try {
-      const [audiusRes, itunesRes, deezerRes] = await Promise.allSettled([
-        fetch(`https://discoveryprovider.audius.co/v1/tracks/search?query=${q}&limit=80&app_name=SeekerBeat`).then((r) => r.json()),
-        fetch(`https://itunes.apple.com/search?term=${q}&entity=song&limit=40`).then((r) => r.json()),
-        fetch(`https://api.deezer.com/search?q=${q}&limit=40`).then((r) => r.json()),
-      ]);
-      const tracks: any[] = [];
-      const seen = new Set<string>();
-      const push = (row: any) => {
-        const key = `${row.artistName}|${row.trackName}`.toLowerCase().replace(/\s+/g, ' ');
-        if (!row.trackName || seen.has(key)) return;
-        seen.add(key);
-        tracks.push(row);
-      };
-      if (audiusRes.status === 'fulfilled' && audiusRes.value?.data) {
-        audiusRes.value.data.forEach((track: any) => push(pack(
-          String(track.id),
-          track.title,
-          track.user?.name || term,
-          'Audius',
-          track.artwork?.['150x150'] || track.artwork?.['480x480'] || 'https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/So11111111111111111111111111111111111111112/logo.png',
-          `https://discoveryprovider.audius.co/v1/tracks/${track.id}/stream?app_name=SeekerBeat`,
-        )));
-      }
-      if (itunesRes.status === 'fulfilled' && itunesRes.value?.results) {
-        itunesRes.value.results.forEach((track: any) => {
-          if (!track.previewUrl) return;
-          push(pack(
-            String(track.trackId),
-            track.trackName,
-            track.artistName,
-            'iTunes',
-            String(track.artworkUrl100 || '').replace('100x100', '300x300'),
-            track.previewUrl,
-          ));
-        });
-      }
-      if (deezerRes.status === 'fulfilled' && deezerRes.value?.data) {
-        deezerRes.value.data.forEach((track: any) => {
-          if (!track.preview) return;
-          push(pack(
-            String(track.id),
-            track.title,
-            track.artist?.name || term,
-            'Deezer',
-            track.album?.cover_medium || track.album?.cover || '',
-            track.preview,
-          ));
-        });
-      }
-      tracks.sort((a, b) => Number(!String(a.previewUrl).includes('audius.co')) - Number(!String(b.previewUrl).includes('audius.co')));
-      setDiscoResults(tracks.slice(0, 80));
-      if (tracks.length === 0) {
-        Alert.alert('Artist Hub', 'Nothing found. Try another spelling.');
-      } else {
-        const exactArtist = tracks[0].artistName;
+      const host = 'https://discoveryprovider.audius.co';
+      const res = await fetch(`${host}/v1/tracks/search?query=${encodeURIComponent(query)}&app_name=SeekerBeat`);
+      const data = await res.json();
+
+      if (data && data.data && data.data.length > 0) {
+        const formattedResults = data.data.map((track: any) => ({
+           trackId: track.id,
+           trackName: track.title,
+           artistName: track.user.name,
+           collectionName: '🎵',
+           artworkUrl100: track.artwork?.['150x150'] || 'https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/So11111111111111111111111111111111111111112/logo.png',
+           previewUrl: `${host}/v1/tracks/${track.id}/stream?app_name=SeekerBeat`
+        }));
+        setDiscoResults(formattedResults);
+
+        const exactArtist = formattedResults[0].artistName;
         try {
           const wikiRes = await fetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(exactArtist)}`);
           if (wikiRes.ok) {
             const wikiData = await wikiRes.json();
-            if (wikiData.extract && wikiData.type !== 'disambiguation') {
-              setArtistBio({ name: exactArtist, summary: wikiData.extract, image: wikiData.thumbnail?.source });
+            if (wikiData.extract) {
+              setArtistBio({ 
+                name: exactArtist, 
+                summary: wikiData.extract, 
+                image: wikiData.thumbnail?.source 
+              });
             }
           }
-        } catch (e) {}
+        } catch (e) {} 
+      } else {
+         setDiscoResults([]);
       }
-    } catch (e) {
-      setDiscoResults([]);
-      Alert.alert('Artist Hub', 'Search failed. Check the internet and try again.');
-    } finally { setIsSearchingDisco(false); }
+    } catch (e) {} finally { setIsSearchingDisco(false); }
   };
-
-  const resolveFullUrl = async (track: any) => {
-    let url = String(track?.previewUrl || '');
-    if (!url.includes('audius.co')) {
-      try {
-        const q = encodeURIComponent(`${track.artistName || ''} ${track.trackName || ''}`.trim());
-        const res = await fetch(`https://discoveryprovider.audius.co/v1/tracks/search?query=${q}&limit=12&app_name=SeekerBeat`);
-        const json = await res.json();
-        const rows = Array.isArray(json?.data) ? json.data : [];
-        const title = String(track.trackName || '').toLowerCase();
-        const artist = String(track.artistName || '').toLowerCase().split(' ')[0];
-        const hit = rows.find((t: any) => {
-          const tt = String(t.title || '').toLowerCase();
-          const aa = String(t.user?.name || '').toLowerCase();
-          return tt.includes(title.slice(0, 12)) && (!artist || aa.includes(artist));
-        }) || rows.find((t: any) => String(t.title || '').toLowerCase().includes(title.slice(0, 8)));
-        if (hit?.id) url = `https://discoveryprovider.audius.co/v1/tracks/${hit.id}/stream?app_name=SeekerBeat`;
-      } catch (e) {}
-    }
-    return url;
-  };
-
-  const playHubAt = async (index: number) => {
-    const list = discoRef.current;
-    if (!list.length) return;
-    const i = ((index % list.length) + list.length) % list.length;
-    const track = list[i];
-    const url = await resolveFullUrl(track);
-    if (!url) {
-      Alert.alert('Play', 'No audio for this track.');
-      return;
-    }
-    const station: Station = {
-      id: String(track.trackId), name: track.trackName, url,
-      favicon: track.artworkUrl100, tags: `${track.artistName},AUDIO`,
-    };
-    if (!hubRef.current.open) {
-      hubSlide.setValue(210);
-      Animated.timing(hubSlide, { toValue: 0, duration: 340, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start();
-    }
-    hubRef.current.open = true;
-    hubRef.current.index = i;
-    hubRef.current.started = Date.now();
-    setHubOpen(true);
-    setHubIndex(i);
-    setHubPos(0);
-    setYtTall(false);
-    setYtClip(null);
-    setCurrentStation(station);
-    setLastPlayedStation(station);
-    setLiveMetadata(null);
-    setIsPlaying(true);
-    AsyncStorage.setItem(LAST_STATION_KEY, JSON.stringify(station)).catch(() => {});
-    try { await TrackPlayer.setRepeatMode(RepeatMode.Off); } catch (e) {}
-    await playRadioStation(station);
-  };
-  playHubAtRef.current = playHubAt;
-  discoRef.current = discoResults;
-
-  useEffect(() => {
-    if (!hubOpen) return;
-    const timer = setInterval(async () => {
-      try {
-        const p = await TrackPlayer.getProgress();
-        const pos = p.position || 0;
-        const dur = p.duration || 0;
-        setHubPos(pos);
-        setHubDur(dur);
-        const h = hubRef.current;
-        if (h.open && h.auto && dur > 3 && pos > 2 && pos >= dur - 0.7 && Date.now() - h.started > 3000) {
-          h.started = Date.now();
-          playHubAtRef.current(h.index + 1);
-        }
-      } catch (e) {}
-    }, 500);
-    return () => clearInterval(timer);
-  }, [hubOpen]);
-
-  useEffect(() => {
-    const goNext = () => {
-      const h = hubRef.current;
-      if (!h.open || !h.auto) return;
-      if (Date.now() - h.started < 3000) return;
-      h.started = Date.now();
-      playHubAtRef.current(h.index + 1);
-    };
-    const ended = TrackPlayer.addEventListener(Event.PlaybackQueueEnded, goNext);
-    const stateSub = TrackPlayer.addEventListener(Event.PlaybackState, (event) => {
-      if (event.state === State.Ended) goNext();
-    });
-    return () => { ended.remove(); stateSub.remove(); };
-  }, []);
 
   const handlePlayPreview = async (track: any) => {
-    if (!track?.trackName) {
-      Alert.alert('Play', 'No audio for this track.');
-      return;
-    }
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    const idx = discoRef.current.findIndex((t) => String(t.trackId) === String(track.trackId));
-    await playHubAt(idx < 0 ? 0 : idx);
-  };
-
-  const seekHub = async (ratio: number) => {
-    if (!hubDur || hubDur < 1) return;
-    const to = Math.max(0, Math.min(hubDur - 0.4, ratio * hubDur));
-    setHubPos(to);
-    try { await TrackPlayer.seekTo(to); } catch (e) {}
+    const previewStation: Station = {
+      id: String(track.trackId), name: track.trackName, url: track.previewUrl, 
+      favicon: track.artworkUrl100, tags: '🎵',
+    };
+    handleTogglePlay(previewStation);
+    setDiscoModalVisible(false); 
   };
 
   const openExternalApp = async (type: 'spotify' | 'youtube', artist: string, track: string) => {
@@ -2292,109 +1614,6 @@ function SeekerBeatMain() {
       await Linking.openURL(url);
     } catch (error) {
       Alert.alert('Error', `Could not open ${type}`);
-    }
-  };
-
-  const openYoutubeInline = async (artist: string, track: string, keepSize = false) => {
-  Haptics.selectionAsync();
-  setYtBusy(true);
-  const query = `${artist} ${track}`.trim();
-  const pick = (text: string) => {
-    const matched = text.match(/"videoId":"([A-Za-z0-9_-]{11})"/);
-    return matched ? matched[1] : '';
-  };
-  let videoId = '';
-  try {
-    const res = await fetch('https://www.youtube.com/youtubei/v1/search?prettyPrint=false', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        context: { client: { clientName: 'WEB', clientVersion: '2.20241001.00.00', hl: 'en', gl: 'US' } },
-        query,
-      }),
-    });
-    if (res.ok) videoId = pick(await res.text());
-  } catch (e) {}
-  if (!videoId) {
-    try {
-      const res = await fetch(`https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`);
-      if (res.ok) videoId = pick(await res.text());
-    } catch (e) {}
-  }
-  setYtBusy(false);
-  if (!videoId) {
-    Alert.alert('YouTube', 'Could not find a video. Try again.');
-    return;
-  }
-  setYtClip({ id: videoId, title: `${track} — ${artist}` });
-  if (!keepSize) setYtTall(false);
-  if (isPlaying) {
-    setIsPlaying(false);
-    pauseRadioStation().catch(() => {});
-  }
- };
-
-  const youtubeHtml = (id: string) => `<!DOCTYPE html><html><head><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"><meta name="referrer" content="strict-origin-when-cross-origin"><style>html,body{margin:0;height:100%;background:#000;overflow:hidden}#player{position:absolute;inset:0;width:100%;height:100%}</style></head><body><div id="player"></div><script src="https://www.youtube.com/iframe_api"></script><script>
-function onYouTubeIframeAPIReady(){
-  new YT.Player('player',{
-    videoId:'${id}',
-    playerVars:{autoplay:1,playsinline:1,rel:1,modestbranding:1,fs:0,controls:1,iv_load_policy:3,origin:'https://seekerbeat.app'},
-    events:{onStateChange:function(e){if(e.data===0&&window.ReactNativeWebView){window.ReactNativeWebView.postMessage(JSON.stringify({type:'ended'}));}}}
-  });
-}
-</script></body></html>`;
-
-  const youtubeVideoId = (url?: string) => {
-    const u = url || '';
-    const matched = u.match(/[?&]v=([A-Za-z0-9_-]{11})/) || u.match(/youtu\.be\/([A-Za-z0-9_-]{11})/) || u.match(/\/shorts\/([A-Za-z0-9_-]{11})/) || u.match(/\/embed\/([A-Za-z0-9_-]{11})/);
-    return matched ? matched[1] : '';
-  };
-
-  const openSuggestedYoutube = (url?: string) => {
-    const id = youtubeVideoId(url);
-    if (!id) return;
-    ytIndexRef.current = -1;
-    setYtClip((prev) => ({ id, title: prev?.title || 'YouTube' }));
-  };
-
-  const playNextYoutube = () => {
-    if (Date.now() - ytEndGuard.current < 4000) return;
-    const list = discoRef.current;
-    const i = ytIndexRef.current;
-    if (i < 0 || !list.length || i + 1 >= list.length) return;
-    ytEndGuard.current = Date.now();
-    const track = list[i + 1];
-    ytIndexRef.current = i + 1;
-    openYoutubeInline(track.artistName, track.trackName, true);
-  };
-
-  const allowEmbedNav = (url?: string) => {
-    const u = (url || '').toLowerCase();
-    if (!u || u.startsWith('about:') || u.startsWith('blob:') || u.startsWith('data:')) return true;
-    if (u.startsWith('intent:') || u.startsWith('vnd.') || u.startsWith('youtube:') || u.startsWith('market:')) return false;
-    const bare = u.split('?')[0];
-    if (bare.includes('youtu.be/') || bare.endsWith('/watch') || bare.includes('/results') || bare.includes('/redirect') || bare.includes('accounts.google') || bare.includes('music.youtube')) return false;
-    return u.startsWith('https://');
-  };
-
-  const closeYoutube = async () => {
-    setYtTall(false);
-    setYtClip(null);
-    ytIndexRef.current = -1;
-    StatusBar.setHidden(false, 'fade');
-    if (!isDriveMode) ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP).catch(() => {});
-  };
-
-  const toggleYoutubeSize = async () => {
-    const next = !ytTall;
-    setYtTall(next);
-    StatusBar.setHidden(next, 'fade');
-    if (Platform.OS === 'android') StatusBar.setTranslucent(next);
-    try {
-      await ScreenOrientation.unlockAsync();
-      await ScreenOrientation.lockAsync(next ? ScreenOrientation.OrientationLock.LANDSCAPE : ScreenOrientation.OrientationLock.PORTRAIT_UP);
-    } catch (e) {
-      if (next) Alert.alert('Rotate', 'The app is locked to portrait in AndroidManifest. Change MainActivity screenOrientation to fullSensor and rebuild.');
     }
   };
 
@@ -2449,12 +1668,7 @@ function onYouTubeIframeAPIReady(){
     Haptics.selectionAsync();
     setEqStyle(style as any);
     AsyncStorage.setItem(EQ_STYLE_KEY, style);
-  };
 
-  const handleDriveEqChange = async (style: string) => {
-    Haptics.selectionAsync();
-    setDriveEqStyle(style as any);
-    AsyncStorage.setItem(DRIVE_EQ_STYLE_KEY, style);
     if ((style === 'halo' || style === 'orb') && vinylStyle !== 'off') {
       Alert.alert('Style Conflict', 'Center visualizers conflict with Vinyl. Vinyl has been turned off.');
       setVinylStyle('off');
@@ -2467,10 +1681,10 @@ function onYouTubeIframeAPIReady(){
     setVinylStyle(style as any);
     AsyncStorage.setItem(DRIVE_VINYL_KEY, style);
 
-    if (style !== 'off' && (driveEqStyle === 'halo' || driveEqStyle === 'orb')) {
-      Alert.alert('Style Conflict', 'Vinyl conflicts with center visualizers. Drive visualizer changed to Ring.');
-      setDriveEqStyle('ring');
-      AsyncStorage.setItem(DRIVE_EQ_STYLE_KEY, 'ring');
+    if (style !== 'off' && (eqStyle === 'halo' || eqStyle === 'orb')) {
+      Alert.alert('Style Conflict', 'Vinyl conflicts with center visualizers. Visualizer changed to Bars.');
+      setEqStyle('bars');
+      AsyncStorage.setItem(EQ_STYLE_KEY, 'bars');
     }
   };
 
@@ -2479,10 +1693,6 @@ function onYouTubeIframeAPIReady(){
     nightPickRef.current = true;
     if (themeName !== 'midnight') dayThemeRef.current = themeName;
     setAppTheme(themeName);
-    if (themeName === 'winamp') {
-      setEqStyle('winamp');
-      AsyncStorage.setItem(EQ_STYLE_KEY, 'winamp');
-    }
     try { await AsyncStorage.setItem(THEME_KEY, themeName); } catch (e) {}
   };
 
@@ -2862,7 +2072,7 @@ function onYouTubeIframeAPIReady(){
     let timerId: ReturnType<typeof setInterval> | null = null;
     if (isPlaying) {
       const tick = () => {
-        if (AppState.currentState !== 'active' || (eqStyle === 'off' && driveEqStyle === 'off')) return;
+        if (AppState.currentState !== 'active' || eqStyle === 'off') return;
         const now = Date.now();
         const dt = Math.min(0.2, (now - (tick as any).last) / 1000 || 0.08);
         (tick as any).last = now;
@@ -2901,7 +2111,7 @@ function onYouTubeIframeAPIReady(){
       });
     }
     return () => { if (timerId) clearInterval(timerId); };
-  }, [isPlaying, eqStyle, driveEqStyle, isDriveMode]);
+  }, [isPlaying, eqStyle, isDriveMode]);
 
   useEffect(() => {
     let spinAlive = false;
@@ -3045,12 +2255,8 @@ function onYouTubeIframeAPIReady(){
       if (savedEqSkin === 'classic' || savedEqSkin === 'winamp') setEqSkin(savedEqSkin);
 
       const storedEqStyle = await AsyncStorage.getItem(EQ_STYLE_KEY);
-      const migratedEq = storedEqStyle === 'ring' ? 'halo' : storedEqStyle === 'lines' ? 'dots' : (storedEqStyle === 'road' || storedEqStyle === 'orb') ? 'bars' : storedEqStyle;
+      const migratedEq = storedEqStyle === 'ring' ? 'halo' : storedEqStyle === 'lines' ? 'dots' : storedEqStyle;
       if (migratedEq) { setEqStyle(migratedEq as any); }
-      const storedDriveEq = await AsyncStorage.getItem(DRIVE_EQ_STYLE_KEY);
-      const driveEq = storedDriveEq === 'road' ? 'ring' : storedDriveEq;
-      if (driveEq) setDriveEqStyle(driveEq as any);
-      else if (migratedEq) setDriveEqStyle(migratedEq as any);
 
       const storedTheme = await AsyncStorage.getItem(THEME_KEY);
       if (storedTheme) { setAppTheme(storedTheme as any); dayThemeRef.current = storedTheme; }
@@ -3301,11 +2507,11 @@ function onYouTubeIframeAPIReady(){
   } else if (appTheme === 'ocean') {
     primaryNeon = '#00E5FF';
     secondaryNeon = '#0066FF';
-    bgTheme = '#063044';
+    bgTheme = '#001018';
   } else if (appTheme === 'minecraft') {
     primaryNeon = '#73C24A';
     secondaryNeon = '#C4A574';
-    bgTheme = '#78A7FF';
+    bgTheme = '#12160E';
   } else if (appTheme === 'seeker') {
     primaryNeon = '#14F195';
     secondaryNeon = '#9945FF';
@@ -3316,8 +2522,6 @@ function onYouTubeIframeAPIReady(){
     bgTheme = '#5C94FC';
   }
   const isMario = appTheme === 'mario';
-  const isMc = appTheme === 'minecraft';
-  const mcText = { color: '#F4E7C5', textShadowColor: '#3F2A14', textShadowOffset: { width: 1, height: 2 }, textShadowRadius: 0 };
 
   const renderChangeText = (change: number) => {
     const isPositive = change >= 0;
@@ -3343,7 +2547,7 @@ function onYouTubeIframeAPIReady(){
   else if (appTheme === 'midnight') defaultLogo = require('../assets/images/midnight.png');
   else if (appTheme === 'seeker') defaultLogo = require('../assets/images/seeker.png');
   const marioLevel = require('../assets/images/mario-bg.png');
-  const marioDrive = require('../assets/images/mario-drive.png');
+
   const activeCryptoItems = useMemo(() => {
     const items = [];
     if (cryptoData?.sol) items.push({ symbol: 'SOL', price: cryptoData.sol.price, change: cryptoData.sol.change || 0 });
@@ -3359,7 +2563,7 @@ function onYouTubeIframeAPIReady(){
     const code = Number(weatherData.code);
     if ([51, 53, 55, 61, 63, 65, 66, 67, 80, 81, 82, 95, 96, 99].includes(code)) return 'rain';
     if ([71, 73, 75, 77, 85, 86].includes(code)) return 'snow';
-    if ([45, 48].includes(code)) return 'fog';
+    if ((weatherData.windSpeed || 0) >= 28) return 'wind';
     return 'clear';
   })();
 
@@ -3389,14 +2593,9 @@ function onYouTubeIframeAPIReady(){
     if (currentStation) handleTogglePlay(currentStation);
   };
 
-  const stepTheme = (dir: number) => {
-    const i = Math.max(0, THEME_CYCLE.indexOf(appTheme as any));
-    handleThemeChange(THEME_CYCLE[(i + dir + THEME_CYCLE.length) % THEME_CYCLE.length]);
-  };
-
   return (
     <GestureHandlerRootView style={{flex: 1, backgroundColor: bgTheme}}>
-      {themeFx && <ThemeFx theme={appTheme} burst={themeBurst} isPlaying={isPlaying} raining={weatherMood === 'rain'} drive={isDriveMode} accent={primaryNeon} logoTop={(insets.top || 0) + 40} />}
+      {themeFx && <ThemeFx theme={appTheme} burst={themeBurst} isPlaying={isPlaying} raining={weatherMood === 'rain'} drive={isDriveMode} accent={primaryNeon} />}
       {marioPop && (
         <View pointerEvents="none" style={{ position: 'absolute', left: windowWidth / 2 - 18, bottom: 130, zIndex: 80, alignItems: 'center' }}>
           <Animated.View style={{ transform: [{ translateY: coinY }] }}>
@@ -3417,11 +2616,11 @@ function onYouTubeIframeAPIReady(){
       
       <SafeAreaView style={styles.container}>
         
-        <View style={[styles.header, { zIndex: 40 }, isCyber && { borderBottomColor: '#250010' }]}>
+        <View style={[styles.header, isCyber && { borderBottomColor: '#250010' }]}>
           <View style={styles.headerTopRow}>
-            <View style={[styles.leftHeaderSection, { flex: 0, paddingRight: 8 }]}>
-              <TouchableOpacity activeOpacity={0.9} onPress={handleLogoTap} style={[styles.logoContainer, { alignItems: 'flex-end' }]}>
-                <Image source={defaultLogo} style={[styles.logoIcon, isMc && { borderRadius: 2, borderWidth: 3, borderColor: '#3F2A14' }]} />
+            <View style={styles.leftHeaderSection}>
+              <TouchableOpacity activeOpacity={0.9} onPress={handleLogoTap} style={styles.logoContainer}>
+                <Image source={defaultLogo} style={styles.logoIcon} />
                 <View style={styles.titleWrapper}>
                   <View style={[styles.pulseContainer, { width: pulseW, overflow: 'hidden' }]}>
                     <MaskedView style={{ flex: 1, width: pulseW }} maskElement={
@@ -3467,34 +2666,26 @@ function onYouTubeIframeAPIReady(){
                       <Text style={[styles.headerTitle, { opacity: 0 }]}>SEEKER BEAT</Text>
                     </LinearGradient>
                   </MaskedView>
-                  <Text numberOfLines={1} style={[styles.headerSubtitle, {color: primaryNeon}, isMc && mcText]}>{appTheme.toUpperCase()} EDITION</Text>
+                  <Text style={[styles.headerSubtitle, {color: primaryNeon}]}>{brandTitle(appTheme)} EDITION</Text>
                 </View>
               </TouchableOpacity>
             </View>
 
-            <View
-              onLayout={(e) => {
-                const w = Math.floor(e.nativeEvent.layout.width);
-                if (w > 24 && Math.abs(w - vizSlotW) > 1) setVizSlotW(w);
-              }}
-              style={{ flex: 1, height: MAIN_VIZ_H, overflow: 'hidden', justifyContent: 'flex-end', alignItems: 'flex-end' }}
-            >
+            <View style={[styles.rightHeaderSection, isMario && { justifyContent: 'flex-start' }]}>
                {isMario ? (
-                 <FitMainViz slotW={vizSlotW} styleName="cubes">
-                   <CubeEqualizer barValues={barValues} primaryNeon="#E52521" secondaryNeon="#FBD000" height={92} />
-                 </FitMainViz>
+                 <View style={{ transform: [{ translateY: -8 }] }}>
+                   <CubeEqualizer barValues={barValues} primaryNeon="#E52521" secondaryNeon="#FBD000" height={56} />
+                 </View>
                ) : brickFlash ? (
                  <View style={{ flexDirection: 'row', alignItems: 'flex-end', height: 52, gap: 2 }}>
-                   {Array.from({ length: 12 }).map((_, i) => (
-                     <View key={`brick-${i}`} style={{ width: 8, height: 10 + (i % 4) * 6, backgroundColor: i % 3 === 0 ? '#FBD000' : '#C84C0C', borderWidth: 1, borderColor: '#6B2A00' }} />
+                   {Array.from({ length: 15 }).map((_, i) => (
+                     <View key={`brick-${i}`} style={{ width: 9, height: 12 + (i % 4) * 8, backgroundColor: i % 3 === 0 ? '#FBD000' : '#C84C0C', borderWidth: 1, borderColor: '#6B2A00' }} />
                    ))}
                  </View>
-               ) : eqStyle === 'winamp' ? (
-                 <WinampEq barValues={barValues} width={Math.max(80, vizSlotW)} />
                ) : (
-                 <FitMainViz slotW={vizSlotW} styleName={eqStyle}>
+                 <View style={(eqStyle === 'cubes' || eqStyle === 'minecraft' || eqStyle === 'wave') ? { transform: [{ translateY: -8 }] } : eqStyle === 'dots' ? { transform: [{ translateX: -14 }, { translateY: -8 }] } : { transform: [{ translateX: -2 }] }}>
                    <HeaderViz styleName={eqStyle} barValues={barValues} primaryNeon={primaryNeon} secondaryNeon={secondaryNeon} />
-                 </FitMainViz>
+                 </View>
                )}
             </View>
           </View>
@@ -3563,7 +2754,7 @@ function onYouTubeIframeAPIReady(){
         </View>
 
         <View style={styles.searchWrapper}>
-          <View style={[styles.searchContainer, isMario && { backgroundColor: 'rgba(200,76,12,0.92)', borderColor: '#6B2A00', borderRadius: 4 }, isMc && { backgroundColor: '#8B5A2B', borderColor: '#3F2A14', borderRadius: 2, borderWidth: 3 }]}>
+          <View style={[styles.searchContainer, isMario && { backgroundColor: 'rgba(200,76,12,0.92)', borderColor: '#6B2A00', borderRadius: 4 }]}>
             <TouchableOpacity onPress={executeGlobalSearch}>
               <Ionicons name="search" size={18} color={searchQuery.length > 0 ? primaryNeon : "#8A8A9E"} style={styles.searchIcon} />
             </TouchableOpacity>
@@ -3603,14 +2794,13 @@ function onYouTubeIframeAPIReady(){
                   isFavCategory && styles.favGenreChip, 
                   isPodcastCategory && { borderColor: `${primaryNeon}33` },
                   isDjCategory && { borderColor: '#F59E0B33' },
-                  isAudiobook && { borderColor: '#A855F733' },
-                  isMc && { backgroundColor: '#8B5A2B', borderColor: '#3F2A14', borderRadius: 2, borderWidth: 2 }
+                  isAudiobook && { borderColor: '#A855F733' }
                 ]} onPress={() => handleGenreSelect(item.id)}>
                   {isFavCategory && <Ionicons name="star" size={12} color={active ? '#FFD700' : '#8A8A9E'} style={{ marginRight: 4 }} />}
                   {isPodcastCategory && <Ionicons name="mic" size={12} color={active ? primaryNeon : '#8A8A9E'} style={{ marginRight: 4 }} />}
                   {isDjCategory && <Ionicons name="headset" size={12} color={active ? '#F59E0B' : '#8A8A9E'} style={{ marginRight: 4 }} />}
                   {isAudiobook && <Ionicons name="book" size={12} color={active ? '#A855F7' : '#8A8A9E'} style={{ marginRight: 4 }} />}
-                  <Text style={[styles.genreText, active && styles.activeGenreText, isMc && { color: '#F4E7C5' }]}>{item.name}</Text>
+                  <Text style={[styles.genreText, active && styles.activeGenreText]}>{item.name}</Text>
                 </TouchableOpacity>
               );
             }}
@@ -3651,14 +2841,14 @@ function onYouTubeIframeAPIReady(){
               const isThisPlaying = currentStation?.id === item.id && isPlaying;
               const isFav = favorites.some((fav) => fav.id === item.id);
               return (
-                <TouchableOpacity style={[styles.stationCard, isMario && { backgroundColor: '#C84C0C', borderColor: '#6B2A00', borderRadius: 4, borderBottomWidth: 4 }, isMc && { backgroundColor: '#8B5A2B', borderColor: '#3F2A14', borderRadius: 0, borderWidth: 3, borderTopColor: '#5D9B2E', borderTopWidth: 8 }, isThisPlaying && [styles.activeCard, isMario && { borderColor: '#FBD000', backgroundColor: '#E07030' }, isMc && { borderColor: '#C6A15B', backgroundColor: '#A36B32' }, isCyber && {borderColor: secondaryNeon}]]} onPress={() => handleTogglePlay(item)}>
-                  <Image source={item.favicon && item.favicon.startsWith('http') ? { uri: item.favicon } : defaultLogo} style={[styles.stationImage, isMario && { borderRadius: 4, borderWidth: 2, borderColor: '#6B2A00' }, isMc && { borderRadius: 0, borderWidth: 2, borderColor: '#3F2A14' }]} />
+                <TouchableOpacity style={[styles.stationCard, isMario && { backgroundColor: '#C84C0C', borderColor: '#6B2A00', borderRadius: 4, borderBottomWidth: 4 }, isThisPlaying && [styles.activeCard, isMario && { borderColor: '#FBD000', backgroundColor: '#E07030' }, isCyber && {borderColor: secondaryNeon}]]} onPress={() => handleTogglePlay(item)}>
+                  <Image source={item.favicon && item.favicon.startsWith('http') ? { uri: item.favicon } : defaultLogo} style={[styles.stationImage, isMario && { borderRadius: 4, borderWidth: 2, borderColor: '#6B2A00' }]} />
                   <View style={styles.stationInfo}>
-                    <Text style={[styles.stationName, isMario && { color: '#FFF8E7' }, isMc && mcText]} numberOfLines={1}>{item.name}</Text>
-                    <Text style={[styles.stationTag, {color: isMario ? '#FBD000' : isMc ? '#D8C28A' : primaryNeon}]} numberOfLines={1}>{item.tags ? item.tags.split(',').slice(0, 2).join(' • ').toUpperCase() : 'MUSIC'}</Text>
+                    <Text style={[styles.stationName, isMario && { color: '#FFF8E7' }]} numberOfLines={1}>{item.name}</Text>
+                    <Text style={[styles.stationTag, {color: isMario ? '#FBD000' : primaryNeon}]} numberOfLines={1}>{item.tags ? item.tags.split(',').slice(0, 2).join(' • ').toUpperCase() : 'MUSIC'}</Text>
                   </View>
                   <TouchableOpacity style={styles.favButton} onPress={() => toggleFavorite(item)}>
-                    <Ionicons name={isFav ? 'star' : 'star-outline'} size={24} color={isFav ? '#FFD700' : (isMario ? '#F6D7A7' : isMc ? '#E7D7A1' : '#4A4A62')} />
+                    <Ionicons name={isFav ? 'star' : 'star-outline'} size={24} color={isFav ? '#FFD700' : (isMario ? '#F6D7A7' : '#4A4A62')} />
                   </TouchableOpacity>
                   {isMario ? (
                     <View style={{ width: 36, alignItems: 'center' }}>
@@ -3667,11 +2857,6 @@ function onYouTubeIframeAPIReady(){
                         <View style={{ position: 'absolute', right: 5, top: 5, width: 4, height: 4, borderRadius: 2, backgroundColor: '#FFF' }} />
                       </View>
                       <View style={{ width: 12, height: 10, backgroundColor: '#F6D7A7', borderBottomLeftRadius: 3, borderBottomRightRadius: 3 }} />
-                    </View>
-                  ) : isMc ? (
-                    <View style={{ width: 28, height: 28, borderWidth: 2, borderColor: '#3F2A14' }}>
-                      <View style={{ height: 9, backgroundColor: isThisPlaying ? '#8FCB4A' : '#5D9B2E' }} />
-                      <View style={{ flex: 1, backgroundColor: '#6B4423' }} />
                     </View>
                   ) : (
                     <Ionicons name={isThisPlaying ? 'pause-circle' : 'play-circle'} size={38} color={isThisPlaying ? primaryNeon : '#7000FF'} />
@@ -3685,11 +2870,10 @@ function onYouTubeIframeAPIReady(){
         {playbackError && ( <View style={styles.errorToast}><Text style={styles.errorToastText}>{playbackError}</Text></View> )}
 
         {currentStation && (
-          <View style={[styles.bottomPlayerContainer, isCyber && {borderColor: secondaryNeon}, appTheme === 'dracula' && { borderColor: '#FF79C6' }, isMario && { backgroundColor: '#2E9B32', borderColor: '#16661A', borderRadius: 22, borderWidth: 3, height: 84 }, isMc && { backgroundColor: '#6D6D6D', borderColor: '#2C2C2C', borderRadius: 2, borderWidth: 4, height: 84 }]}>
-            {!isMario && !isMc && <Image source={isDynamicCover && currentStation.favicon && currentStation.favicon.startsWith('http') ? { uri: currentStation.favicon } : defaultLogo} style={StyleSheet.absoluteFillObject} blurRadius={10} />}
-            <View style={[styles.bottomPlayerOverlay, isMario && { backgroundColor: 'rgba(22,102,26,0.35)' }, isMc && { backgroundColor: 'rgba(40,40,40,0.35)' }]}>
-              {themeFx && appTheme === 'dracula' && <DraculaPlayerFx />}
-              <Image source={isDynamicCover && currentStation.favicon && currentStation.favicon.startsWith('http') ? { uri: currentStation.favicon } : defaultLogo} style={[styles.bottomCoverThumb, isMc && { borderRadius: 0, borderWidth: 2, borderColor: '#3F2A14' }]} />
+          <View style={[styles.bottomPlayerContainer, isCyber && {borderColor: secondaryNeon}, isMario && { backgroundColor: '#2E9B32', borderColor: '#16661A', borderRadius: 22, borderWidth: 3, height: 84 }]}>
+            {!isMario && <Image source={isDynamicCover && currentStation.favicon && currentStation.favicon.startsWith('http') ? { uri: currentStation.favicon } : defaultLogo} style={StyleSheet.absoluteFillObject} blurRadius={10} />}
+            <View style={[styles.bottomPlayerOverlay, isMario && { backgroundColor: 'rgba(22,102,26,0.35)' }]}>
+              <Image source={isDynamicCover && currentStation.favicon && currentStation.favicon.startsWith('http') ? { uri: currentStation.favicon } : defaultLogo} style={styles.bottomCoverThumb} />
               <View style={styles.bottomInfoSection}>
                 {themeFx && appTheme === 'winamp' ? (
                   <WinampBounce active>
@@ -3698,7 +2882,7 @@ function onYouTubeIframeAPIReady(){
                 ) : themeFx && appTheme === 'aimp' ? (
                   <MatrixLine lines={2} active={false} text={liveMetadata?.title || activeTrack?.title || currentStation.name} style={styles.bottomStationTitle} />
                 ) : (
-                  <MatrixLine lines={2} active={appTheme === 'matrix' && matrixFx} text={liveMetadata?.title || activeTrack?.title || currentStation.name} style={[styles.bottomStationTitle, isMc && mcText]} />
+                  <MatrixLine lines={2} active={appTheme === 'matrix' && matrixFx} text={liveMetadata?.title || activeTrack?.title || currentStation.name} style={styles.bottomStationTitle} />
                 )}
                 <Text style={[styles.bottomStationStatus, {color: primaryNeon}]}>{isPlaying ? '● LIVE' : 'PAUSED'}</Text>
                 {themeFx && appTheme === 'aimp' && <AimpNeedle />}
@@ -3726,7 +2910,7 @@ function onYouTubeIframeAPIReady(){
                  <TouchableOpacity style={[styles.bottomPlayButton, {marginRight: 8, borderColor: 'transparent', backgroundColor: 'transparent'}]} onPress={() => { Haptics.selectionAsync(); setTrackInfoVisible(true); }}>
                    <Ionicons name="information-circle-outline" size={26} color={primaryNeon} />
                  </TouchableOpacity>
-                 <TouchableOpacity style={[styles.bottomPlayButton, isCyber && {borderColor: '#000', backgroundColor: primaryNeon, borderWidth: 2}, isMario && { backgroundColor: '#E52521', borderColor: '#FFF' }, isMc && { backgroundColor: '#5D9B2E', borderColor: '#3F2A14', borderRadius: 2, borderWidth: 3 }]} onPress={() => handleTogglePlay(currentStation)}>
+                 <TouchableOpacity style={[styles.bottomPlayButton, isCyber && {borderColor: '#000', backgroundColor: primaryNeon, borderWidth: 2}, isMario && { backgroundColor: '#E52521', borderColor: '#FFF' }]} onPress={() => handleTogglePlay(currentStation)}>
                    {isMario ? (
                      <View style={{ alignItems: 'center' }}>
                        <View style={{ width: 22, height: 12, backgroundColor: '#E52521', borderTopLeftRadius: 10, borderTopRightRadius: 10, borderWidth: 1, borderColor: '#FFF' }} />
@@ -3741,118 +2925,68 @@ function onYouTubeIframeAPIReady(){
           </View>
         )}
 
-        {isMario ? (
-          <View style={[styles.footerContainer, { paddingBottom: insets.bottom > 0 ? insets.bottom + 10 : 24, backgroundColor: '#5C94FC', borderTopWidth: 0, justifyContent: 'space-around' }]}>
-            {([
-              { key: 'timer', label: alarmTime ? (timeLeft || 'SET') : 'TIME', mark: alarmTime ? '!' : '?', onPress: () => { Haptics.selectionAsync(); setAlarmModalVisible(true); } },
-              { key: 'drive', label: 'DRIVE', mark: '?', onPress: handleEnterDriveMode },
-              { key: 'artist', label: 'ARTIST', mark: '?', onPress: () => { Haptics.selectionAsync(); setDiscoModalVisible(true); } },
-              { key: 'settings', label: 'SETTINGS', mark: '?', onPress: () => { Haptics.selectionAsync(); setAboutModalVisible(true); } },
-            ] as const).map((item) => (
-              <TouchableOpacity key={item.key} onPress={item.onPress} activeOpacity={0.75} style={{ alignItems: 'center', width: 74 }}>
-                <View style={{ width: 62, height: 62, backgroundColor: '#F8B800', borderWidth: 4, borderTopColor: '#FFE36A', borderLeftColor: '#FFE36A', borderRightColor: '#8B3A00', borderBottomColor: '#8B3A00', alignItems: 'center', justifyContent: 'center' }}>
-                  <View style={{ position: 'absolute', top: 4, left: 4, width: 7, height: 7, backgroundColor: '#FFF2A8' }} />
-                  <View style={{ position: 'absolute', top: 4, right: 4, width: 7, height: 7, backgroundColor: '#E09000' }} />
-                  <View style={{ position: 'absolute', bottom: 4, left: 4, width: 7, height: 7, backgroundColor: '#C45A00' }} />
-                  <View style={{ position: 'absolute', bottom: 4, right: 4, width: 7, height: 7, backgroundColor: '#8B3A00' }} />
-                  <View style={{ position: 'absolute', width: 46, height: 46, borderWidth: 2, borderColor: '#C45A00' }} />
-                  <Text numberOfLines={2} style={{ color: '#FFF', fontSize: 10, fontWeight: '900', letterSpacing: 0.2, textAlign: 'center', lineHeight: 12, paddingHorizontal: 4, textShadowColor: '#6B2A00', textShadowOffset: { width: 1, height: 1 }, textShadowRadius: 0 }}>{item.label}</Text>
-                </View>
-              </TouchableOpacity>
-            ))}
-          </View>
-        ) : (
-        <View style={[styles.footerContainer, { paddingBottom: insets.bottom > 0 ? insets.bottom + 10 : 24 }, isCyber && {backgroundColor: '#050205'}, isMc && { backgroundColor: '#6B4423', borderTopColor: '#3F2A14', borderTopWidth: 6 }]}>
+        <View style={[styles.footerContainer, { paddingBottom: insets.bottom > 0 ? insets.bottom + 10 : 24 }, isCyber && {backgroundColor: '#050205'}, isMario && { backgroundColor: '#C84C0C', borderTopColor: '#6B2A00' }]}>
           <TouchableOpacity style={styles.footerBtnQuarter} onPress={() => { Haptics.selectionAsync(); setAlarmModalVisible(true); }} activeOpacity={0.7}>
-            <Ionicons name="timer-outline" size={20} color={alarmTime ? primaryNeon : (isMc ? '#F4E7C5' : '#4A4A62')} />
-            <Text style={[styles.footerAboutText, (alarmTime || isMc) ? { color: isMc ? '#F4E7C5' : primaryNeon } : null]} numberOfLines={1}>
+            <Ionicons name="timer-outline" size={20} color={alarmTime ? (isMario ? '#FBD000' : primaryNeon) : (isMario ? '#FFF8E7' : '#4A4A62')} />
+            <Text style={[styles.footerAboutText, (alarmTime || isMario) ? { color: isMario ? '#FFF8E7' : primaryNeon } : null]} numberOfLines={1}>
               {alarmTime ? (timeLeft || 'Set') : 'Timer'}
             </Text>
           </TouchableOpacity>
-          <View style={[styles.footerDivider, isMc && { backgroundColor: '#3F2A14' }]} />
+          <View style={[styles.footerDivider, isMario && { backgroundColor: '#6B2A00' }]} />
           
           <TouchableOpacity style={styles.footerBtnQuarter} onPress={handleEnterDriveMode} activeOpacity={0.7}>
-            <Ionicons name="car-sport" size={24} color={isMc ? '#F4E7C5' : '#4A4A62'} />
-            <Text style={[styles.footerAboutText, isMc && { color: '#F4E7C5' }]}>Drive</Text>
+            <Ionicons name="car-sport" size={24} color={isMario ? '#FFF8E7' : '#4A4A62'} />
+            <Text style={[styles.footerAboutText, isMario && { color: '#FFF8E7' }]}>Drive</Text>
           </TouchableOpacity>
-          <View style={[styles.footerDivider, isMc && { backgroundColor: '#3F2A14' }]} />
+          <View style={[styles.footerDivider, isMario && { backgroundColor: '#6B2A00' }]} />
           
           <TouchableOpacity style={styles.footerBtnQuarter} onPress={() => { Haptics.selectionAsync(); setDiscoModalVisible(true); }} activeOpacity={0.7}>
-            <Ionicons name="albums-outline" size={20} color={isMc ? '#F4E7C5' : '#4A4A62'} />
-            <Text style={[styles.footerAboutText, isMc && { color: '#F4E7C5' }]}>Artists</Text>
+            <Ionicons name="albums-outline" size={20} color={isMario ? '#FFF8E7' : '#4A4A62'} />
+            <Text style={[styles.footerAboutText, isMario && { color: '#FFF8E7' }]}>Artists</Text>
           </TouchableOpacity>
-          <View style={[styles.footerDivider, isMc && { backgroundColor: '#3F2A14' }]} />
+          <View style={[styles.footerDivider, isMario && { backgroundColor: '#6B2A00' }]} />
 
           <TouchableOpacity style={styles.footerBtnQuarter} onPress={() => { Haptics.selectionAsync(); setAboutModalVisible(true); }} activeOpacity={0.7}>
-            <Ionicons name="settings-outline" size={20} color={isMc ? '#F4E7C5' : '#4A4A62'} />
-            <Text style={[styles.footerAboutText, isMc && { color: '#F4E7C5' }]}>Settings</Text>
+            <Ionicons name="settings-outline" size={20} color={isMario ? '#FFF8E7' : '#4A4A62'} />
+            <Text style={[styles.footerAboutText, isMario && { color: '#FFF8E7' }]}>Settings</Text>
           </TouchableOpacity>
         </View>
-        )}
 
         <Modal visible={isDriveMode} animationType="fade" transparent={true}>
-          <SafeAreaView style={[styles.driveModeContainer, {backgroundColor: isMario ? '#5C94FC' : isMc ? '#78A7FF' : '#000'}]}>
+          <SafeAreaView style={[styles.driveModeContainer, {backgroundColor: isMario ? '#5C94FC' : '#000'}]}>
             
-            {!isMario && !isMc && currentStation && currentStation.favicon && currentStation.favicon.startsWith('http') && (
+            {!isMario && currentStation && currentStation.favicon && currentStation.favicon.startsWith('http') && (
               <Image source={{ uri: currentStation.favicon }} style={StyleSheet.absoluteFillObject} blurRadius={15} />
             )}
-            {!isMario && !isMc && <LinearGradient colors={['rgba(10,15,25,0.85)', 'rgba(5,5,15,0.95)']} style={StyleSheet.absoluteFillObject} />}
+            {!isMario && <LinearGradient colors={['rgba(10,15,25,0.85)', 'rgba(5,5,15,0.95)']} style={StyleSheet.absoluteFillObject} />}
 
-            {!isMario && !isMc && driveBg === 'aurora' && <AmbientAurora isPlaying={isPlaying} primaryNeon={primaryNeon} secondaryNeon={secondaryNeon} bgTheme={bgTheme} />}
-            {!isMario && !isMc && driveBg === 'dust' && <ChampagneDust isPlaying={isPlaying} primaryNeon={primaryNeon} />}
-            {!isMario && !isMc && driveBg === 'sunset' && <SynthwaveSunset primaryNeon={primaryNeon} secondaryNeon={secondaryNeon} bgTheme={bgTheme} />}
-            {!isMario && !isMc && driveBg === 'pulse' && <PulseWaves isPlaying={isPlaying} primaryNeon={primaryNeon} bgTheme={bgTheme} />}
-            {!isMario && !isMc && driveBg === 'grid' && <SynthwaveGrid isPlaying={isPlaying} primaryNeon={primaryNeon} secondaryNeon={secondaryNeon} bgTheme={bgTheme} />}
-            {!isMario && !isMc && driveBg === 'rain' && <MatrixRainBg isPlaying={isPlaying} primaryNeon={primaryNeon} bgTheme={bgTheme} />}
-            {!isMario && !isMc && driveBg === 'stars' && <StarfieldBg isPlaying={isPlaying} primaryNeon={primaryNeon} secondaryNeon={secondaryNeon} bgTheme={bgTheme} />}
-            {!isMario && !isMc && driveBg === 'miami' && <MiamiStripes isPlaying={isPlaying} primaryNeon={primaryNeon} secondaryNeon={secondaryNeon} bgTheme={bgTheme} />}
-            {!isMario && !isMc && driveBg === 'embers' && <EmberField isPlaying={isPlaying} primaryNeon={primaryNeon} />}
+            {!isMario && driveBg === 'aurora' && <AmbientAurora isPlaying={isPlaying} primaryNeon={primaryNeon} secondaryNeon={secondaryNeon} bgTheme={bgTheme} />}
+            {!isMario && driveBg === 'dust' && <ChampagneDust isPlaying={isPlaying} primaryNeon={primaryNeon} />}
+            {!isMario && driveBg === 'sunset' && <SynthwaveSunset primaryNeon={primaryNeon} secondaryNeon={secondaryNeon} bgTheme={bgTheme} />}
+            {!isMario && driveBg === 'pulse' && <PulseWaves isPlaying={isPlaying} primaryNeon={primaryNeon} bgTheme={bgTheme} />}
+            {!isMario && driveBg === 'grid' && <SynthwaveGrid isPlaying={isPlaying} primaryNeon={primaryNeon} secondaryNeon={secondaryNeon} bgTheme={bgTheme} />}
+            {!isMario && driveBg === 'rain' && <MatrixRainBg isPlaying={isPlaying} primaryNeon={primaryNeon} bgTheme={bgTheme} />}
+            {!isMario && driveBg === 'stars' && <StarfieldBg isPlaying={isPlaying} primaryNeon={primaryNeon} secondaryNeon={secondaryNeon} bgTheme={bgTheme} />}
+            {!isMario && driveBg === 'miami' && <MiamiStripes isPlaying={isPlaying} primaryNeon={primaryNeon} secondaryNeon={secondaryNeon} bgTheme={bgTheme} />}
+            {!isMario && driveBg === 'embers' && <EmberField isPlaying={isPlaying} primaryNeon={primaryNeon} />}
             {isMario && (
               <View style={[StyleSheet.absoluteFill, { pointerEvents: 'none' }]}>
-                <Image source={marioDrive} resizeMode="cover" style={StyleSheet.absoluteFill} />
-              </View>
-            )}
-            {isMc && (
-              <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-                <View style={{ position: 'absolute', top: 28, left: 22, width: 18, height: 18, backgroundColor: '#FFE14A', borderWidth: 2, borderColor: '#E2B400' }} />
-                <View style={{ position: 'absolute', top: 36, right: 36, flexDirection: 'row', alignItems: 'flex-end' }}>
-                  <View style={{ width: 16, height: 10, backgroundColor: '#F7FBFF' }} />
-                  <View style={{ width: 22, height: 14, backgroundColor: '#F7FBFF' }} />
-                  <View style={{ width: 14, height: 10, backgroundColor: '#F7FBFF' }} />
-                </View>
-                <View style={{ position: 'absolute', left: 16, bottom: 92, alignItems: 'center' }}>
-                  <View style={{ width: 34, height: 22, backgroundColor: '#3F9A32' }} />
-                  <View style={{ width: 10, height: 20, backgroundColor: '#6B4423' }} />
-                </View>
-                <View style={{ position: 'absolute', right: 28, bottom: 92, alignItems: 'center' }}>
-                  <View style={{ width: 26, height: 16, backgroundColor: '#2F7A28' }} />
-                  <View style={{ width: 8, height: 14, backgroundColor: '#6B4423' }} />
-                </View>
-                <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: 92 }}>
-                  <View style={{ height: 18, backgroundColor: '#5D9B2E' }} />
-                  <View style={{ flex: 1, backgroundColor: '#8B5A2B' }} />
-                </View>
+                <Image source={marioLevel} resizeMode="cover" style={StyleSheet.absoluteFill} />
               </View>
             )}
             {weatherMood !== 'clear' && (
               <View pointerEvents="none" style={StyleSheet.absoluteFill}>
                 {weatherMood === 'rain' && <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(20, 70, 140, 0.28)' }]} />}
-                {weatherMood === 'fog' && (
-                  <>
-                    <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(255,255,255,0.28)' }]} />
-                    <View style={{ position: 'absolute', top: 30, left: -40, width: 300, height: 180, borderRadius: 90, backgroundColor: 'rgba(255,255,255,0.16)' }} />
-                    <View style={{ position: 'absolute', bottom: 70, right: -50, width: 340, height: 200, borderRadius: 100, backgroundColor: 'rgba(226,232,240,0.2)' }} />
-                  </>
-                )}
-                {weatherMood !== 'fog' && Array.from({ length: 14 }).map((_, i) => (
+                {Array.from({ length: 14 }).map((_, i) => (
                   <View key={`wx-${i}`} style={{
                     position: 'absolute',
                     left: (i * 67) % 360,
                     top: 40 + ((i * 53) % 520),
-                    width: weatherMood === 'snow' ? 6 : 8,
-                    height: weatherMood === 'snow' ? 6 : 8,
-                    borderRadius: 6,
+                    width: weatherMood === 'wind' ? 28 : (weatherMood === 'snow' ? 6 : 8),
+                    height: weatherMood === 'wind' ? 2 : (weatherMood === 'snow' ? 6 : 8),
+                    borderRadius: weatherMood === 'wind' ? 1 : 6,
                     backgroundColor: weatherMood === 'rain' ? 'rgba(180,230,255,0.75)' : 'rgba(255,255,255,0.85)',
+                    transform: weatherMood === 'wind' ? [{ rotate: '-18deg' }] : [],
                   }} />
                 ))}
               </View>
@@ -3885,13 +3019,13 @@ function onYouTubeIframeAPIReady(){
 
               <View style={{ position: 'absolute', bottom: 8, width: '100%', alignItems: 'center', zIndex: 50 }} pointerEvents="box-none">
 
-                <View style={(driveEqStyle === 'cubes' || driveEqStyle === 'minecraft' || driveEqStyle === 'wave') ? { marginTop: -8 } : driveEqStyle === 'dots' ? { marginTop: -8, marginLeft: -14 } : { marginLeft: -2 }}>
-                  <DriveFx styleName={driveEqStyle} barValues={barValues} primaryNeon={starMode ? starColor(0) : primaryNeon} secondaryNeon={starMode ? starColor(3) : secondaryNeon} />
+                <View style={(eqStyle === 'cubes' || eqStyle === 'minecraft' || eqStyle === 'wave') ? { marginTop: -8 } : eqStyle === 'dots' ? { marginTop: -8, marginLeft: -14 } : { marginLeft: -2 }}>
+                  <DriveFx styleName={eqStyle} barValues={barValues} primaryNeon={starMode ? starColor(0) : primaryNeon} secondaryNeon={starMode ? starColor(3) : secondaryNeon} />
                 </View>
 
-                <TouchableOpacity onPress={() => { Haptics.selectionAsync(); setIsDriveStationsOpen(true); }} activeOpacity={0.7} style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: isMario ? '#C84C0C' : isMc ? '#8B5A2B' : 'rgba(20,20,30,0.72)', borderWidth: isMario || isMc ? 3 : 0, borderColor: isMc ? '#3F2A14' : '#6B2A00', paddingHorizontal: 15, paddingVertical: 8, borderRadius: isMario || isMc ? 2 : 20, marginBottom: 4, maxWidth: '86%', zIndex: 80}}>
-                  <MatrixLine active={appTheme === 'matrix' && matrixFx} text={currentStation ? currentStation.name : 'NO STATION'} style={{color: isMario || isMc ? '#F4E7C5' : primaryNeon, fontSize: 14, fontWeight: 'bold', letterSpacing: 1, flexShrink: 1, textAlign: 'center'}} />
-                  <Ionicons name="chevron-down" size={16} color={isMario ? '#FBD000' : isMc ? '#E7D7A1' : primaryNeon} style={{marginLeft: 8}} />
+                <TouchableOpacity onPress={() => { Haptics.selectionAsync(); setIsDriveStationsOpen(true); }} activeOpacity={0.7} style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: isMario ? '#C84C0C' : 'rgba(20,20,30,0.72)', borderWidth: isMario ? 2 : 0, borderColor: '#6B2A00', paddingHorizontal: 15, paddingVertical: 8, borderRadius: isMario ? 4 : 20, marginBottom: 4, maxWidth: '86%', zIndex: 80}}>
+                  <MatrixLine active={appTheme === 'matrix' && matrixFx} text={currentStation ? currentStation.name : 'NO STATION'} style={{color: isMario ? '#FFF8E7' : primaryNeon, fontSize: 14, fontWeight: 'bold', letterSpacing: 1, flexShrink: 1, textAlign: 'center'}} />
+                  <Ionicons name="chevron-down" size={16} color={isMario ? '#FBD000' : primaryNeon} style={{marginLeft: 8}} />
                 </TouchableOpacity>
                 
                 {trackTitle ? (
@@ -3902,17 +3036,19 @@ function onYouTubeIframeAPIReady(){
 
                 <View style={{ justifyContent: 'center', alignItems: 'center', width: 200, height: 200, alignSelf: 'center' }} pointerEvents="box-none">
                   
-                  {DRIVE_FX.includes(driveEqStyle) && driveEqStyle !== 'vinyl' && driveEqStyle !== 'synth' && (
+                  {DRIVE_FX.includes(eqStyle) && eqStyle !== 'vinyl' && (
                     <View pointerEvents="none" style={{ position: 'absolute', zIndex: 1, alignItems: 'center', justifyContent: 'center', transform: [{ translateX: -2 }] }}>
-                      {driveEqStyle === 'ring' && <RingFx barValues={barValues} color={primaryNeon} size={176} />}
-                      {driveEqStyle === 'pulse' && <PulseFx barValues={barValues} color={primaryNeon} size={180} />}
-                      {driveEqStyle === 'spiral' && <SpiralFx barValues={barValues} color={primaryNeon} size={176} />}
-                      {driveEqStyle === 'sparks' && <SparksFx barValues={barValues} color={primaryNeon} alt={secondaryNeon} size={180} />}
-                      {driveEqStyle === 'radar' && <RadarFx barValues={barValues} color={primaryNeon} size={176} />}
+                      {eqStyle === 'ring' && <RingFx barValues={barValues} color={primaryNeon} size={176} />}
+                      {eqStyle === 'pulse' && <PulseFx barValues={barValues} color={primaryNeon} size={180} />}
+                      {eqStyle === 'road' && <RoadFx barValues={barValues} color={primaryNeon} alt={secondaryNeon} size={240} />}
+                      {eqStyle === 'spiral' && <SpiralFx barValues={barValues} color={primaryNeon} size={176} />}
+                      {eqStyle === 'sparks' && <SparksFx barValues={barValues} color={primaryNeon} alt={secondaryNeon} size={180} />}
+                      {eqStyle === 'radar' && <RadarFx barValues={barValues} color={primaryNeon} size={176} />}
+                      {eqStyle === 'synth' && <SynthFx barValues={barValues} size={230} />}
                     </View>
                   )}
 
-                  {driveEqStyle === 'halo' && [0, 1, 2].map((i) => {
+                  {eqStyle === 'halo' && [0, 1, 2].map((i) => {
                     const srcBar = barValues[i * 4] || barValues[0];
                     const scale = srcBar.interpolate({ inputRange: [0, SEGMENTS_PER_BAR], outputRange: [0.85 + i * 0.18, 1.15 + i * 0.35], extrapolate: 'clamp' });
                     const opacity = srcBar.interpolate({ inputRange: [0, SEGMENTS_PER_BAR], outputRange: [0.15, 0.85 - i * 0.2], extrapolate: 'clamp' });
@@ -3922,7 +3058,7 @@ function onYouTubeIframeAPIReady(){
                     );
                   })}
 
-                  {driveEqStyle === 'orb' && (
+                  {eqStyle === 'orb' && (
                     <Animated.View style={{
                        position: 'absolute', width: 140, height: 140, borderRadius: 70, backgroundColor: primaryNeon, zIndex: 1,
                        shadowColor: primaryNeon, shadowOpacity: 1, shadowRadius: 30, elevation: 20,
@@ -3931,17 +3067,8 @@ function onYouTubeIframeAPIReady(){
                     }} pointerEvents="none" />
                   )}
 
-                  {!isMario && vinylStyle !== 'off' && driveEqStyle !== 'synth' && <VinylRecord isPlaying={isPlaying} artwork={currentStation?.favicon && currentStation.favicon.startsWith('http') ? {uri: currentStation.favicon} : defaultLogo} primaryNeon={primaryNeon} vinylStyle={vinylStyle} />}
-                  {!isMario && driveEqStyle === 'vinyl' && vinylStyle !== 'off' && (
-                    <View pointerEvents="none" style={{ position: 'absolute', width: 230, height: 230, alignItems: 'center', justifyContent: 'center', zIndex: 4 }}>
-                      {barValues.slice(0, 8).map((b: any, i: number) => {
-                        const dist = b.interpolate({ inputRange: [0, SEGMENTS_PER_BAR], outputRange: [96, 112], extrapolate: 'clamp' });
-                        const op = b.interpolate({ inputRange: [0, SEGMENTS_PER_BAR], outputRange: [0.25, 1], extrapolate: 'clamp' });
-                        return <Animated.View key={`vspk-${i}`} style={{ position: 'absolute', width: 7, height: 7, borderRadius: 4, backgroundColor: i % 2 ? secondaryNeon : primaryNeon, opacity: op, transform: [{ rotate: `${i * 45}deg` }, { translateY: dist }] }} />;
-                      })}
-                    </View>
-                  )}
-                  {!isMario && driveEqStyle !== 'synth' && driveEqStyle !== 'vinyl' && <Animated.View style={{ position: 'absolute', width: 80, height: 80, borderRadius: 40, backgroundColor: primaryNeon, opacity: 0.2, transform: [{ scale: drivePlayPulseAnim }], zIndex: 8 }} pointerEvents="none" />}
+                  {!isMario && vinylStyle !== 'off' && <VinylRecord isPlaying={isPlaying} artwork={currentStation?.favicon && currentStation.favicon.startsWith('http') ? {uri: currentStation.favicon} : defaultLogo} primaryNeon={primaryNeon} vinylStyle={vinylStyle} />}
+                  {!isMario && <Animated.View style={{ position: 'absolute', width: 80, height: 80, borderRadius: 40, backgroundColor: primaryNeon, opacity: 0.2, transform: [{ scale: drivePlayPulseAnim }], zIndex: 8 }} pointerEvents="none" />}
 
                   {isMario ? (
                     <TouchableOpacity onPress={onDrivePlay} activeOpacity={0.85} delayPressIn={0} style={{ width: 150, height: 150, alignItems: 'center', justifyContent: 'center', zIndex: 10 }}>
@@ -3960,14 +3087,6 @@ function onYouTubeIframeAPIReady(){
                         <View style={{ width: 40, height: 36, marginTop: -4, backgroundColor: '#F6D7A7', borderBottomLeftRadius: 10, borderBottomRightRadius: 10, borderWidth: 3, borderColor: '#E7C48A' }} />
                         {starMode && <Text style={{ marginTop: 4, color: '#FFF', fontWeight: '900', letterSpacing: 2 }}>STAR</Text>}
                       </View>
-                    </TouchableOpacity>
-                  ) : driveEqStyle === 'synth' ? (
-                    <TouchableOpacity onPress={onDrivePlay} activeOpacity={0.85} style={{ zIndex: 10, alignItems: 'center', justifyContent: 'center' }}>
-                      <SynthFx barValues={barValues} size={210} />
-                    </TouchableOpacity>
-                  ) : driveEqStyle === 'vinyl' && vinylStyle === 'off' ? (
-                    <TouchableOpacity onPress={onDrivePlay} activeOpacity={0.85} style={{ zIndex: 10, alignItems: 'center', justifyContent: 'center' }}>
-                      <VinylStage barValues={barValues} color={primaryNeon} alt={secondaryNeon} playing={isPlaying} />
                     </TouchableOpacity>
                   ) : (
                     <TouchableOpacity style={[styles.driveModePlayBtn, {position: 'absolute', zIndex: 10, borderColor: primaryNeon, backgroundColor: 'rgba(10,10,15,0.9)'}]} onPress={onDrivePlay} activeOpacity={0.7}>
@@ -4020,7 +3139,7 @@ function onYouTubeIframeAPIReady(){
               <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 8, marginBottom: 10 }}>
                 {(['classic', 'winamp'] as const).map((skin) => (
                   <TouchableOpacity key={skin} onPress={() => { setEqSkin(skin); AsyncStorage.setItem(EQ_SKIN_KEY, skin); }} style={{ paddingHorizontal: 14, paddingVertical: 6, borderRadius: 6, backgroundColor: eqSkin === skin ? (skin === 'winamp' ? '#3CFF4A' : primaryNeon) : '#252538' }}>
-                    <Text style={{ color: eqSkin === skin ? '#111' : '#8A8A9E', fontSize: 11, fontWeight: '800' }}>{skin.toUpperCase()}</Text>
+                    <Text style={{ color: eqSkin === skin ? '#111' : '#8A8A9E', fontSize: 11, fontWeight: '800' }}>{brandTitle(skin)}</Text>
                   </TouchableOpacity>
                 ))}
               </View>
@@ -4055,19 +3174,19 @@ function onYouTubeIframeAPIReady(){
               ) : (
                 <>
                   <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-                    <Text style={{ color: '#3CFF4A', fontWeight: '900', letterSpacing: 1, fontSize: 14 }}>WINAMP EQUALIZER</Text>
+                    <Text style={{ color: '#3CFF4A', fontWeight: '900', letterSpacing: 1, fontSize: 14 }}>SLIDERS</Text>
                     <TouchableOpacity onPress={toggleEqPower} style={{ paddingHorizontal: 10, paddingVertical: 4, borderRadius: 3, backgroundColor: eqOn ? '#3CFF4A' : '#333' }}>
                       <Text style={{ color: eqOn ? '#111' : '#888', fontWeight: '900', fontSize: 11 }}>{eqOn ? 'ON' : 'OFF'}</Text>
                     </TouchableOpacity>
                   </View>
                   <Text style={{ color: '#6A6A6A', fontSize: 10, marginBottom: 8 }}>{eqPreset} · -12…+12 dB</Text>
-                  <PickedRow picked={eqPreset} gap={6} contentStyle={{ marginBottom: 10 }}>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6, marginBottom: 10 }}>
                     {Object.keys(WINAMP_PRESETS).map((name) => (
-                      <TouchableOpacity key={name} testID={name} onPress={() => applyEqPreset(name)} style={{ paddingHorizontal: 8, paddingVertical: 4, borderRadius: 3, backgroundColor: eqPreset === name ? '#3CFF4A' : '#2A2A2A' }}>
+                      <TouchableOpacity key={name} onPress={() => applyEqPreset(name)} style={{ paddingHorizontal: 8, paddingVertical: 4, borderRadius: 3, backgroundColor: eqPreset === name ? '#3CFF4A' : '#2A2A2A' }}>
                         <Text style={{ color: eqPreset === name ? '#111' : '#3CFF4A', fontSize: 10, fontWeight: '700' }}>{name.toUpperCase()}</Text>
                       </TouchableOpacity>
                     ))}
-                  </PickedRow>
+                  </ScrollView>
                   <View style={{ flexDirection: 'row', justifyContent: 'space-between', opacity: eqOn ? 1 : 0.35 }}>
                     {WINAMP_BANDS.map((label, idx) => {
                       const level = eqBands[idx] ?? 0;
@@ -4100,11 +3219,10 @@ function onYouTubeIframeAPIReady(){
           </View>
         </Modal>
 
-        <Modal visible={isDiscoModalVisible} animationType="slide" transparent={true} statusBarTranslucent navigationBarTranslucent supportedOrientations={['portrait', 'landscape']}>
+        <Modal visible={isDiscoModalVisible} animationType="slide" transparent={true}>
           <View style={styles.modalOverlay}>
-            <View style={[styles.modalContent, { height: ytTall ? '100%' : '85%', padding: ytTall ? 0 : 20, paddingHorizontal: ytTall ? 0 : 15, width: ytTall ? '100%' : '92%', borderRadius: ytTall ? 0 : 16, overflow: 'visible' }]}>
-              {!ytTall && <Text style={[styles.modalTitle, {color: primaryNeon}]}>ARTIST HUB</Text>}
-              {!ytTall && (
+            <View style={[styles.modalContent, { height: '85%', paddingHorizontal: 15, width: '92%' }]}>
+              <Text style={[styles.modalTitle, {color: primaryNeon}]}>ARTIST HUB</Text>
               <View style={[styles.searchContainer, { marginBottom: 15, backgroundColor: '#0A0A0C' }]}>
                 <Ionicons name="search" size={18} color="#8A8A9E" style={styles.searchIcon} />
                 <TextInput style={styles.searchInput} placeholder="Search artist (e.g. The Weeknd)..." placeholderTextColor="#4A4A62" value={discoSearchQuery} onChangeText={setDiscoSearchQuery} onSubmitEditing={() => fetchDiscography(discoSearchQuery)} />
@@ -4112,15 +3230,11 @@ function onYouTubeIframeAPIReady(){
                   {isSearchingDisco ? <ActivityIndicator size="small" color={primaryNeon} /> : <Ionicons name="arrow-forward-circle" size={24} color={primaryNeon} />}
                 </TouchableOpacity>
               </View>
-              )}
               
-              {!ytTall && (
               <FlatList 
                 data={discoResults} 
                 keyExtractor={(item) => String(item.trackId)} 
                 showsVerticalScrollIndicator={false}
-                style={{ flex: 1 }}
-                contentContainerStyle={{ paddingBottom: (ytClip ? 230 : 0) + (hubOpen ? 168 : 12) }}
                 ListHeaderComponent={() => artistBio ? (
                   <View style={styles.bioCard}>
                     {artistBio.image && <Image source={{uri: artistBio.image}} style={styles.bioImage} />}
@@ -4136,15 +3250,15 @@ function onYouTubeIframeAPIReady(){
                       <Image source={{ uri: item.artworkUrl100 }} style={styles.discoImage} />
                       <View style={styles.discoInfo}>
                         <Text style={styles.discoTrackName} numberOfLines={1}>{item.trackName}</Text>
-                        <Text style={styles.discoArtistName} numberOfLines={1}>{item.artistName} • {item.collectionName}{String(item.previewUrl || '').includes('audius.co') ? ' · FULL' : ' · 30s'}</Text>
+                        <Text style={styles.discoArtistName} numberOfLines={1}>{item.artistName} • {item.collectionName}</Text>
                       </View>
                     </View>
                     <View style={styles.discoActionsRow}>
                        <TouchableOpacity style={styles.discoActionBtn} onPress={() => handlePlayPreview(item)}>
-                          <Ionicons name="musical-notes" size={18} color={primaryNeon} />
-                          <Text style={{color: primaryNeon, fontSize: 10, marginTop: 2, fontWeight: 'bold'}}>Play</Text>
+                          <Ionicons name="play" size={18} color={primaryNeon} />
+                          <Text style={{color: primaryNeon, fontSize: 10, marginTop: 2, fontWeight: 'bold'}}>Play Full</Text>
                        </TouchableOpacity>
-                       <TouchableOpacity style={styles.discoActionBtn} onPress={() => { ytIndexRef.current = discoResults.findIndex((t) => String(t.trackId) === String(item.trackId)); openYoutubeInline(item.artistName, item.trackName); }}>
+                       <TouchableOpacity style={styles.discoActionBtn} onPress={() => openExternalApp('youtube', item.artistName, item.trackName)}>
                           <Ionicons name="logo-youtube" size={18} color="#FF0000" />
                           <Text style={{color: '#FF0000', fontSize: 10, marginTop: 2, fontWeight: 'bold'}}>YouTube</Text>
                        </TouchableOpacity>
@@ -4157,114 +3271,7 @@ function onYouTubeIframeAPIReady(){
                 )}
                 ListEmptyComponent={ !isSearchingDisco && discoResults.length === 0 ? ( <Text style={{color: '#8A8A9E', textAlign: 'center', marginTop: 40}}>Enter an artist name to view bio and top tracks.</Text> ) : null }
               />
-              )}
-              {ytClip && (
-                <View collapsable={false} style={ytTall
-                  ? { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 40, elevation: 40, backgroundColor: '#000' }
-                  : { position: 'absolute', left: 12, right: 12, bottom: 62, height: 210, zIndex: 40, elevation: 40, borderRadius: 12, backgroundColor: '#000' }}>
-                  <WebView
-                    ref={ytRef}
-                    key={ytClip.id}
-                    source={{ baseUrl: 'https://seekerbeat.app/', html: youtubeHtml(ytClip.id) }}
-                    style={{ flex: 1, backgroundColor: '#000', opacity: 0.99 }}
-                    androidLayerType="hardware"
-                    userAgent="Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Mobile Safari/537.36"
-                    allowsInlineMediaPlayback
-                    mediaPlaybackRequiresUserAction={false}
-                    javaScriptEnabled
-                    domStorageEnabled
-                    setSupportMultipleWindows={false}
-                    allowsFullscreenVideo={false}
-                    originWhitelist={['*']}
-                    onShouldStartLoadWithRequest={(req: { url?: string }) => {
-                      const id = youtubeVideoId(req.url);
-                      const bare = (req.url || '').toLowerCase().split('?')[0];
-                      if (id && (bare.includes('/watch') || bare.includes('youtu.be/') || bare.includes('/shorts/'))) {
-                        openSuggestedYoutube(req.url);
-                        return false;
-                      }
-                      return allowEmbedNav(req.url);
-                    }}
-                    onOpenWindow={(e: any) => openSuggestedYoutube(e?.nativeEvent?.targetUrl)}
-                    onMessage={(e) => {
-                      try {
-                        const data = JSON.parse(e.nativeEvent.data);
-                        if (data?.type === 'ended') playNextYoutube();
-                        if (data?.type === 'open') openSuggestedYoutube(data.url);
-                      } catch (err) {}
-                    }}
-                    onNavigationStateChange={(nav) => {
-                      const id = youtubeVideoId(nav.url);
-                      const bare = (nav.url || '').toLowerCase().split('?')[0];
-                      if (id && (bare.includes('/watch') || bare.includes('youtu.be/') || bare.includes('/shorts/'))) {
-                        openSuggestedYoutube(nav.url);
-                        ytRef.current?.stopLoading();
-                        return;
-                      }
-                      if (nav.url && !allowEmbedNav(nav.url)) ytRef.current?.stopLoading();
-                    }}
-                  />
-                  <TouchableOpacity onPress={toggleYoutubeSize} style={{ position: 'absolute', top: ytTall ? undefined : 6, bottom: ytTall ? 10 : undefined, left: 8, zIndex: 5, backgroundColor: 'rgba(0,0,0,0.55)', borderRadius: 16, padding: 2 }}>
-                    <Ionicons name={ytTall ? 'contract' : 'expand'} size={26} color="#FFFFFF" />
-                  </TouchableOpacity>
-                  {ytTall && (
-                    <TouchableOpacity onPress={async () => {
-                      try {
-                        const o = await ScreenOrientation.getOrientationAsync();
-                        const landscape = o === ScreenOrientation.Orientation.LANDSCAPE_LEFT || o === ScreenOrientation.Orientation.LANDSCAPE_RIGHT;
-                        await ScreenOrientation.unlockAsync();
-                        await ScreenOrientation.lockAsync(landscape ? ScreenOrientation.OrientationLock.PORTRAIT_UP : ScreenOrientation.OrientationLock.LANDSCAPE);
-                      } catch (e) {
-                        Alert.alert('Rotate', 'The app is locked to portrait in AndroidManifest. Change MainActivity screenOrientation to fullSensor and rebuild.');
-                      }
-                    }} style={{ position: 'absolute', bottom: 10, alignSelf: 'center', zIndex: 5, backgroundColor: 'rgba(0,0,0,0.55)', borderRadius: 16, padding: 2 }}>
-                      <Ionicons name="phone-landscape-outline" size={26} color="#FFF" />
-                    </TouchableOpacity>
-                  )}
-                  <TouchableOpacity onPress={closeYoutube} style={{ position: 'absolute', top: ytTall ? undefined : 6, bottom: ytTall ? 10 : undefined, right: 8, zIndex: 5 }}>
-                    <Ionicons name="close-circle" size={28} color="#FFFFFF" />
-                  </TouchableOpacity>
-                </View>
-              )}
-              {!ytTall && ytBusy && <ActivityIndicator style={{ marginTop: 8 }} color="#FF0000" />}
-              {!ytTall && <TouchableOpacity style={[styles.modalBtnCancel, { marginTop: 15 }]} onPress={() => { closeYoutube(); hubRef.current.open = false; setHubOpen(false); setDiscoModalVisible(false); }}><Text style={styles.modalBtnText}>Close</Text></TouchableOpacity>}
-              {hubOpen && !ytTall && !ytClip && (
-                <Animated.View style={{ position: 'absolute', left: 10, right: 10, bottom: 58, zIndex: 80, elevation: 24, transform: [{ translateY: hubSlide }], backgroundColor: '#0C0C14', borderRadius: 18, borderWidth: 1, borderColor: primaryNeon, paddingHorizontal: 12, paddingTop: 8, paddingBottom: 10 }}>
-                  <View style={{ alignSelf: 'center', width: 36, height: 4, borderRadius: 2, backgroundColor: '#3A3A4E', marginBottom: 8 }} />
-                  <Text style={{ color: '#FFF', fontWeight: '800', fontSize: 14 }} numberOfLines={1}>{discoResults[hubIndex]?.trackName || currentStation?.name || 'Track'}</Text>
-                  <Text style={{ color: '#8A8A9E', fontSize: 11, marginBottom: 6 }} numberOfLines={1}>{discoResults[hubIndex]?.artistName || ''}</Text>
-                  <View
-                    onLayout={(e) => { hubBarW.current = e.nativeEvent.layout.width || 1; }}
-                    onStartShouldSetResponder={() => true}
-                    onMoveShouldSetResponder={() => true}
-                    onResponderGrant={(e) => seekHub(e.nativeEvent.locationX / (hubBarW.current || 1))}
-                    onResponderMove={(e) => seekHub(e.nativeEvent.locationX / (hubBarW.current || 1))}
-                    style={{ height: 22, justifyContent: 'center' }}
-                  >
-                    <View style={{ height: 4, borderRadius: 2, backgroundColor: '#2A2A3A' }}>
-                      <View style={{ width: `${hubDur > 1 ? Math.min(100, (hubPos / hubDur) * 100) : 0}%`, height: 4, borderRadius: 2, backgroundColor: primaryNeon }} />
-                    </View>
-                  </View>
-                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: -2 }}>
-                    <Text style={{ color: '#6A6A7E', fontSize: 10 }}>{`${Math.floor(hubPos / 60)}:${String(Math.floor(hubPos % 60)).padStart(2, '0')}`}</Text>
-                    <Text style={{ color: '#6A6A7E', fontSize: 10 }}>{hubDur > 1 ? `${Math.floor(hubDur / 60)}:${String(Math.floor(hubDur % 60)).padStart(2, '0')}` : '--:--'}</Text>
-                  </View>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 4 }}>
-                    <TouchableOpacity onPress={() => playHubAt(hubIndex - 1)} style={{ padding: 6 }}>
-                      <Ionicons name="play-skip-back" size={22} color="#FFF" />
-                    </TouchableOpacity>
-                    <TouchableOpacity onPress={() => { if (isPlaying) { setIsPlaying(false); pauseRadioStation(); } else { setIsPlaying(true); TrackPlayer.play().catch(() => playHubAt(hubIndex)); } }} style={{ width: 46, height: 46, borderRadius: 23, backgroundColor: primaryNeon, alignItems: 'center', justifyContent: 'center' }}>
-                      <Ionicons name={isPlaying ? 'pause' : 'play'} size={24} color="#111" />
-                    </TouchableOpacity>
-                    <TouchableOpacity onPress={() => playHubAt(hubIndex + 1)} style={{ padding: 6 }}>
-                      <Ionicons name="play-skip-forward" size={22} color="#FFF" />
-                    </TouchableOpacity>
-                    <TouchableOpacity onPress={() => { const next = !hubAuto; setHubAuto(next); hubRef.current.auto = next; Haptics.selectionAsync(); }} style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 12, backgroundColor: hubAuto ? primaryNeon : '#1C1C28', borderWidth: 1, borderColor: hubAuto ? primaryNeon : '#333' }}>
-                      <Text style={{ color: hubAuto ? '#111' : '#AAA', fontSize: 10, fontWeight: '800' }}>{hubAuto ? 'AUTO ON' : 'AUTO'}</Text>
-                    </TouchableOpacity>
-                  </View>
-                </Animated.View>
-              )}
+              <TouchableOpacity style={[styles.modalBtnCancel, { marginTop: 15 }]} onPress={() => setDiscoModalVisible(false)}><Text style={styles.modalBtnText}>Close</Text></TouchableOpacity>
             </View>
           </View>
         </Modal>
@@ -4385,49 +3392,9 @@ function onYouTubeIframeAPIReady(){
               
               <Text style={styles.aboutSubText}>
                 {timerActionMode === 'wake'
-                  ? (wakeStation ? `Starts: ${wakeStation.name}` : 'Choose the station below.')
+                  ? (wakeStation ? `Starts: ${wakeStation.name}` : 'Choose the alarm station in Settings.')
                   : 'Radio will slowly fade out in the last 5 minutes.'}
               </Text>
-
-              {timerActionMode === 'wake' && (
-                <View style={{backgroundColor: '#252538', padding: 12, borderRadius: 8, marginBottom: 10}}>
-                  <Text style={{color: '#FFF', fontWeight: 'bold', fontSize: 13}}>Alarm station</Text>
-                  <Text style={{color: wakeStation ? primaryNeon : '#8A8A9E', fontSize: 11, marginTop: 4}} numberOfLines={1}>
-                    {wakeStation ? wakeStation.name : 'Not selected. Wake will do nothing.'}
-                  </Text>
-                  <TouchableOpacity
-                    style={{marginTop: 8, alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, backgroundColor: '#1A1A24', borderWidth: 1, borderColor: primaryNeon}}
-                    onPress={() => {
-                      if (!currentStation) return;
-                      const station = currentStation;
-                      setWakeStation(station);
-                      AsyncStorage.setItem(WAKE_STATION_KEY, JSON.stringify(station));
-                      setWakeChoices((prev) => {
-                        const next = [station, ...prev.filter((s) => s.id !== station.id)].slice(0, 12);
-                        AsyncStorage.setItem(WAKE_LIST_KEY, JSON.stringify(next));
-                        return next;
-                      });
-                    }}
-                  >
-                    <Text style={{color: primaryNeon, fontSize: 10, fontWeight: 'bold'}}>USE CURRENT</Text>
-                  </TouchableOpacity>
-                  <PickedRow picked={wakeStation?.id || ''} gap={8} contentStyle={{ marginTop: 8 }}>
-                    {wakeChoices.map((station) => (
-                      <TouchableOpacity
-                        testID={station.id}
-                        key={station.id}
-                        style={{paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, backgroundColor: '#1A1A24', borderWidth: 1, borderColor: wakeStation?.id === station.id ? primaryNeon : 'transparent'}}
-                        onPress={() => {
-                          setWakeStation(station);
-                          AsyncStorage.setItem(WAKE_STATION_KEY, JSON.stringify(station));
-                        }}
-                      >
-                        <Text style={{color: wakeStation?.id === station.id ? primaryNeon : '#8A8A9E', fontSize: 10, fontWeight: 'bold'}} numberOfLines={1}>{station.name}</Text>
-                      </TouchableOpacity>
-                    ))}
-                  </PickedRow>
-                </View>
-              )}
 
               {(timerActionMode === 'wake' ? wakeStation : lastPlayedStation) ? (
                 <Text style={[styles.timerTargetStation, {color: primaryNeon}]}>
@@ -4477,186 +3444,163 @@ function onYouTubeIframeAPIReady(){
             <View style={styles.modalContent}>
               <Image source={defaultLogo} style={styles.aboutLogo} />
               <Text style={styles.modalTitle}>SEEKER BEAT</Text>
-              <Text style={styles.aboutSubText}>Version: v2.0.0 rel.</Text>
+              <Text style={styles.aboutSubText}>Version: v1.7.0 rel.</Text>
               <Text style={styles.aboutSubText}>Developer: dev-desinho.skr</Text>
 
               <ScrollView style={{ maxHeight: 380, marginTop: 10 }} showsVerticalScrollIndicator={false}>
-                <View style={{flexDirection: 'row', justifyContent: 'center', gap: 8, marginBottom: 10}}>
-                  
-                </View>
-                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#252538', borderRadius: 8, marginBottom: 10 }}>
-                    <TouchableOpacity onPress={() => stepTheme(-1)} style={{ padding: 8 }}>
-                      <Ionicons name="chevron-back" size={22} color={primaryNeon} />
-                    </TouchableOpacity>
-                    <Text style={{ color: '#FFF', fontWeight: '900', fontSize: 13 }}>{THEME_LABEL[appTheme]}</Text>
-                    <TouchableOpacity onPress={() => stepTheme(1)} style={{ padding: 8 }}>
-                      <Ionicons name="chevron-forward" size={22} color={primaryNeon} />
-                    </TouchableOpacity>
-                </View>
+
                 <View style={{backgroundColor: '#12121C', padding: 12, borderRadius: 8, marginBottom: 10, borderWidth: 1, borderColor: primaryNeon}}>
-                  <Text style={{color: primaryNeon, fontWeight: '900', fontSize: 12, letterSpacing: 1, marginBottom: 6}}>NOW ON</Text>
-                  <Text style={{color: '#FFF', fontSize: 12, lineHeight: 18}}>Theme: {appTheme.toUpperCase()}</Text>
-                  <Text style={{color: '#FFF', fontSize: 12, lineHeight: 18}}>Visualizer main: {eqStyle.toUpperCase()}</Text>
-                  <Text style={{color: '#FFF', fontSize: 12, lineHeight: 18}}>Drive background: {driveBg === 'rain' ? 'CODE' : driveBg === 'dust' ? 'BUBBLES' : driveBg === 'miami' ? 'NEON' : driveBg.toUpperCase()}</Text>
-                  <Text style={{color: '#FFF', fontSize: 12, lineHeight: 18}}>Visualizer drive: {driveEqStyle.toUpperCase()}</Text>
+                  <Text style={{color: primaryNeon, fontWeight: '900', fontSize: 12, letterSpacing: 1, marginBottom: 6}}>СЕЙЧАС ВКЛЮЧЕНО</Text>
+                  <Text style={{color: '#FFF', fontSize: 12, lineHeight: 18}}>Тема: {appTheme.toUpperCase()}</Text>
+                  <Text style={{color: '#FFF', fontSize: 12, lineHeight: 18}}>Drive фон: {driveBg === 'rain' ? 'CODE' : driveBg === 'dust' ? 'BUBBLES' : driveBg === 'miami' ? 'NEON' : driveBg.toUpperCase()}</Text>
+                  <Text style={{color: '#FFF', fontSize: 12, lineHeight: 18}}>Visualizer: {eqStyle.toUpperCase()}</Text>
                   <Text style={{color: '#FFF', fontSize: 12, lineHeight: 18}}>Vinyl: {vinylStyle.toUpperCase()}</Text>
-                  <Text style={{color: '#FFF', fontSize: 12, lineHeight: 18}}>Speedometer: {speedStyle.toUpperCase()}</Text>
-                  <Text style={{color: '#FFF', fontSize: 12, lineHeight: 18}}>Weather: {weatherStyle.toUpperCase()}</Text>
+                  <Text style={{color: '#FFF', fontSize: 12, lineHeight: 18}}>Спидометр: {speedStyle.toUpperCase()}</Text>
+                  <Text style={{color: '#FFF', fontSize: 12, lineHeight: 18}}>Погода: {weatherStyle.toUpperCase()}</Text>
                 </View>
                 
                 <View style={{backgroundColor: '#252538', padding: 12, borderRadius: 8, marginBottom: 10}}>
                   <Text style={{color: '#FFF', fontWeight: 'bold', fontSize: 13, marginBottom: 8}}>App Theme</Text>
-                  <PickedRow picked={appTheme}>
-                     <TouchableOpacity style={[{paddingHorizontal: 16, paddingVertical: 8, alignItems: 'center', borderRadius: 6, backgroundColor: '#1A1A24', borderWidth: 1, borderColor: 'transparent'}, appTheme === 'default' && {borderWidth: 2, backgroundColor: '#000', borderColor: '#00F0FF'}]} testID="default" onPress={() => handleThemeChange('default')}>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{gap: 8}}>
+                     <TouchableOpacity style={[{paddingHorizontal: 16, paddingVertical: 8, alignItems: 'center', borderRadius: 6, backgroundColor: '#1A1A24', borderWidth: 1, borderColor: 'transparent'}, appTheme === 'default' && {borderWidth: 2, backgroundColor: '#000', borderColor: '#00F0FF'}]} onPress={() => handleThemeChange('default')}>
                         <Text style={{color: '#00F0FF', fontSize: 10, fontWeight: 'bold'}}>NEON</Text>
                      </TouchableOpacity>
-                     <TouchableOpacity style={[{paddingHorizontal: 16, paddingVertical: 8, alignItems: 'center', borderRadius: 6, backgroundColor: '#1A1A24', borderWidth: 1, borderColor: 'transparent'}, appTheme === 'cyberpunk' && {borderWidth: 2, backgroundColor: '#000', borderColor: '#FCEE0A'}]} testID="cyberpunk" onPress={() => handleThemeChange('cyberpunk')}>
+                     <TouchableOpacity style={[{paddingHorizontal: 16, paddingVertical: 8, alignItems: 'center', borderRadius: 6, backgroundColor: '#1A1A24', borderWidth: 1, borderColor: 'transparent'}, appTheme === 'cyberpunk' && {borderWidth: 2, backgroundColor: '#000', borderColor: '#FCEE0A'}]} onPress={() => handleThemeChange('cyberpunk')}>
                         <Text style={{color: '#FCEE0A', fontSize: 10, fontWeight: 'bold'}}>CYBER</Text>
                      </TouchableOpacity>
-                     <TouchableOpacity style={[{paddingHorizontal: 16, paddingVertical: 8, alignItems: 'center', borderRadius: 6, backgroundColor: '#1A1A24', borderWidth: 1, borderColor: 'transparent'}, appTheme === 'winamp' && {borderWidth: 2, backgroundColor: '#000', borderColor: '#00FF00'}]} testID="winamp" onPress={() => handleThemeChange('winamp')}>
-                        <Text style={{color: '#00FF00', fontSize: 10, fontWeight: 'bold'}}>WINAMP</Text>
+                     <TouchableOpacity style={[{paddingHorizontal: 16, paddingVertical: 8, alignItems: 'center', borderRadius: 6, backgroundColor: '#1A1A24', borderWidth: 1, borderColor: 'transparent'}, appTheme === 'winamp' && {borderWidth: 2, backgroundColor: '#000', borderColor: '#00FF00'}]} onPress={() => handleThemeChange('winamp')}>
+                        <Text style={{color: '#00FF00', fontSize: 10, fontWeight: 'bold'}}>SLIDERS</Text>
                      </TouchableOpacity>
-                     <TouchableOpacity style={[{paddingHorizontal: 16, paddingVertical: 8, alignItems: 'center', borderRadius: 6, backgroundColor: '#1A1A24', borderWidth: 1, borderColor: 'transparent'}, appTheme === 'aimp' && {borderWidth: 2, backgroundColor: '#000', borderColor: '#FF6600'}]} testID="aimp" onPress={() => handleThemeChange('aimp')}>
+                     <TouchableOpacity style={[{paddingHorizontal: 16, paddingVertical: 8, alignItems: 'center', borderRadius: 6, backgroundColor: '#1A1A24', borderWidth: 1, borderColor: 'transparent'}, appTheme === 'aimp' && {borderWidth: 2, backgroundColor: '#000', borderColor: '#FF6600'}]} onPress={() => handleThemeChange('aimp')}>
                         <Text style={{color: '#FF6600', fontSize: 10, fontWeight: 'bold'}}>AIMP</Text>
                      </TouchableOpacity>
-                     <TouchableOpacity style={[{paddingHorizontal: 16, paddingVertical: 8, alignItems: 'center', borderRadius: 6, backgroundColor: '#1A1A24', borderWidth: 1, borderColor: 'transparent'}, appTheme === 'matrix' && {borderWidth: 2, backgroundColor: '#000', borderColor: '#00FF41'}]} testID="matrix" onPress={() => handleThemeChange('matrix')}>
+                     <TouchableOpacity style={[{paddingHorizontal: 16, paddingVertical: 8, alignItems: 'center', borderRadius: 6, backgroundColor: '#1A1A24', borderWidth: 1, borderColor: 'transparent'}, appTheme === 'matrix' && {borderWidth: 2, backgroundColor: '#000', borderColor: '#00FF41'}]} onPress={() => handleThemeChange('matrix')}>
                         <Text style={{color: '#00FF41', fontSize: 10, fontWeight: 'bold'}}>MATRIX</Text>
                      </TouchableOpacity>
-                     <TouchableOpacity style={[{paddingHorizontal: 16, paddingVertical: 8, alignItems: 'center', borderRadius: 6, backgroundColor: '#1A1A24', borderWidth: 1, borderColor: 'transparent'}, appTheme === 'synthwave' && {borderWidth: 2, backgroundColor: '#000', borderColor: '#FF00FF'}]} testID="synthwave" onPress={() => handleThemeChange('synthwave')}>
+                     <TouchableOpacity style={[{paddingHorizontal: 16, paddingVertical: 8, alignItems: 'center', borderRadius: 6, backgroundColor: '#1A1A24', borderWidth: 1, borderColor: 'transparent'}, appTheme === 'synthwave' && {borderWidth: 2, backgroundColor: '#000', borderColor: '#FF00FF'}]} onPress={() => handleThemeChange('synthwave')}>
                         <Text style={{color: '#FF00FF', fontSize: 10, fontWeight: 'bold'}}>MIAMI</Text>
                      </TouchableOpacity>
-                     <TouchableOpacity style={[{paddingHorizontal: 16, paddingVertical: 8, alignItems: 'center', borderRadius: 6, backgroundColor: '#1A1A24', borderWidth: 1, borderColor: 'transparent'}, appTheme === 'dracula' && {borderWidth: 2, backgroundColor: '#000', borderColor: '#FF79C6'}]} testID="dracula" onPress={() => handleThemeChange('dracula')}>
+                     <TouchableOpacity style={[{paddingHorizontal: 16, paddingVertical: 8, alignItems: 'center', borderRadius: 6, backgroundColor: '#1A1A24', borderWidth: 1, borderColor: 'transparent'}, appTheme === 'dracula' && {borderWidth: 2, backgroundColor: '#000', borderColor: '#FF79C6'}]} onPress={() => handleThemeChange('dracula')}>
                         <Text style={{color: '#FF79C6', fontSize: 10, fontWeight: 'bold'}}>DRACULA</Text>
                      </TouchableOpacity>
-                     <TouchableOpacity style={[{paddingHorizontal: 16, paddingVertical: 8, alignItems: 'center', borderRadius: 6, backgroundColor: '#1A1A24', borderWidth: 1, borderColor: 'transparent'}, appTheme === 'blood' && {borderWidth: 2, backgroundColor: '#000', borderColor: '#FF2A2A'}]} testID="blood" onPress={() => handleThemeChange('blood')}>
+                     <TouchableOpacity style={[{paddingHorizontal: 16, paddingVertical: 8, alignItems: 'center', borderRadius: 6, backgroundColor: '#1A1A24', borderWidth: 1, borderColor: 'transparent'}, appTheme === 'blood' && {borderWidth: 2, backgroundColor: '#000', borderColor: '#FF2A2A'}]} onPress={() => handleThemeChange('blood')}>
                         <Text style={{color: '#FF2A2A', fontSize: 10, fontWeight: 'bold'}}>BLOOD</Text>
                      </TouchableOpacity>
-                     <TouchableOpacity style={[{paddingHorizontal: 16, paddingVertical: 8, alignItems: 'center', borderRadius: 6, backgroundColor: '#1A1A24', borderWidth: 1, borderColor: 'transparent'}, appTheme === 'midnight' && {borderWidth: 2, backgroundColor: '#000', borderColor: '#7AA2FF'}]} testID="midnight" onPress={() => handleThemeChange('midnight')}>
+                     <TouchableOpacity style={[{paddingHorizontal: 16, paddingVertical: 8, alignItems: 'center', borderRadius: 6, backgroundColor: '#1A1A24', borderWidth: 1, borderColor: 'transparent'}, appTheme === 'midnight' && {borderWidth: 2, backgroundColor: '#000', borderColor: '#7AA2FF'}]} onPress={() => handleThemeChange('midnight')}>
                         <Text style={{color: '#7AA2FF', fontSize: 10, fontWeight: 'bold'}}>MIDNIGHT</Text>
                      </TouchableOpacity>
-                     <TouchableOpacity style={[{paddingHorizontal: 16, paddingVertical: 8, alignItems: 'center', borderRadius: 6, backgroundColor: '#1A1A24', borderWidth: 1, borderColor: 'transparent'}, appTheme === 'amber' && {borderWidth: 2, backgroundColor: '#000', borderColor: '#FFB000'}]} testID="amber" onPress={() => handleThemeChange('amber')}>
+                     <TouchableOpacity style={[{paddingHorizontal: 16, paddingVertical: 8, alignItems: 'center', borderRadius: 6, backgroundColor: '#1A1A24', borderWidth: 1, borderColor: 'transparent'}, appTheme === 'amber' && {borderWidth: 2, backgroundColor: '#000', borderColor: '#FFB000'}]} onPress={() => handleThemeChange('amber')}>
                         <Text style={{color: '#FFB000', fontSize: 10, fontWeight: 'bold'}}>AMBER</Text>
                      </TouchableOpacity>
-                     <TouchableOpacity style={[{paddingHorizontal: 16, paddingVertical: 8, alignItems: 'center', borderRadius: 6, backgroundColor: '#1A1A24', borderWidth: 1, borderColor: 'transparent'}, appTheme === 'ocean' && {borderWidth: 2, backgroundColor: '#000', borderColor: '#00E5FF'}]} testID="ocean" onPress={() => handleThemeChange('ocean')}>
+                     <TouchableOpacity style={[{paddingHorizontal: 16, paddingVertical: 8, alignItems: 'center', borderRadius: 6, backgroundColor: '#1A1A24', borderWidth: 1, borderColor: 'transparent'}, appTheme === 'ocean' && {borderWidth: 2, backgroundColor: '#000', borderColor: '#00E5FF'}]} onPress={() => handleThemeChange('ocean')}>
                         <Text style={{color: '#00E5FF', fontSize: 10, fontWeight: 'bold'}}>OCEAN</Text>
                      </TouchableOpacity>
-                     <TouchableOpacity style={[{paddingHorizontal: 16, paddingVertical: 8, alignItems: 'center', borderRadius: 6, backgroundColor: '#1A1A24', borderWidth: 1, borderColor: 'transparent'}, appTheme === 'minecraft' && {borderWidth: 2, backgroundColor: '#000', borderColor: '#73C24A'}]} testID="minecraft" onPress={() => handleThemeChange('minecraft')}>
-                        <Text style={{color: '#73C24A', fontSize: 10, fontWeight: 'bold'}}>MINECRAFT</Text>
+                     <TouchableOpacity style={[{paddingHorizontal: 16, paddingVertical: 8, alignItems: 'center', borderRadius: 6, backgroundColor: '#1A1A24', borderWidth: 1, borderColor: 'transparent'}, appTheme === 'minecraft' && {borderWidth: 2, backgroundColor: '#000', borderColor: '#73C24A'}]} onPress={() => handleThemeChange('minecraft')}>
+                        <Text style={{color: '#73C24A', fontSize: 10, fontWeight: 'bold'}}>BLOCKS</Text>
                      </TouchableOpacity>
-                     <TouchableOpacity style={[{paddingHorizontal: 16, paddingVertical: 8, alignItems: 'center', borderRadius: 6, backgroundColor: '#1A1A24', borderWidth: 1, borderColor: 'transparent'}, appTheme === 'seeker' && {borderWidth: 2, backgroundColor: '#000', borderColor: '#14F195'}]} testID="seeker" onPress={() => handleThemeChange('seeker')}>
+                     <TouchableOpacity style={[{paddingHorizontal: 16, paddingVertical: 8, alignItems: 'center', borderRadius: 6, backgroundColor: '#1A1A24', borderWidth: 1, borderColor: 'transparent'}, appTheme === 'seeker' && {borderWidth: 2, backgroundColor: '#000', borderColor: '#14F195'}]} onPress={() => handleThemeChange('seeker')}>
                         <Text style={{color: '#14F195', fontSize: 10, fontWeight: 'bold'}}>SEEKER</Text>
                      </TouchableOpacity>
-                     <TouchableOpacity style={[{paddingHorizontal: 16, paddingVertical: 8, alignItems: 'center', borderRadius: 6, backgroundColor: '#1A1A24', borderWidth: 1, borderColor: 'transparent'}, appTheme === 'mario' && {borderWidth: 2, backgroundColor: '#000', borderColor: '#E52521'}]} testID="mario" onPress={() => handleThemeChange('mario')}>
-                        <Text style={{color: '#FBD000', fontSize: 10, fontWeight: 'bold'}}>MARIO</Text>
+                     <TouchableOpacity style={[{paddingHorizontal: 16, paddingVertical: 8, alignItems: 'center', borderRadius: 6, backgroundColor: '#1A1A24', borderWidth: 1, borderColor: 'transparent'}, appTheme === 'mario' && {borderWidth: 2, backgroundColor: '#000', borderColor: '#E52521'}]} onPress={() => handleThemeChange('mario')}>
+                        <Text style={{color: '#FBD000', fontSize: 10, fontWeight: 'bold'}}>BRICKS</Text>
                      </TouchableOpacity>
-                  </PickedRow>
+                  </ScrollView>
                 </View>
 
                 <View style={{backgroundColor: '#252538', padding: 12, borderRadius: 8, marginBottom: 10, gap: 12}}>
                   <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'}}>
                     <View style={{flex: 1, paddingRight: 10}}>
                       <Text style={{color: primaryNeon, fontWeight: 'bold', fontSize: 13}}>Theme effects</Text>
-                      <Text style={{color: '#8A8A9E', fontSize: 10, marginTop: 2}}>Only the selected theme plays its effect</Text>
+                      <Text style={{color: '#8A8A9E', fontSize: 10, marginTop: 2}}>Спецэффект только у выбранной темы</Text>
                     </View>
                     <Switch value={themeFx} onValueChange={(val) => { setThemeFx(val); AsyncStorage.setItem(THEME_FX_KEY, JSON.stringify(val)); }} trackColor={{ false: '#161626', true: primaryNeon }} thumbColor="#FFF" />
                   </View>
                   <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'}}>
                     <View style={{flex: 1, paddingRight: 10}}>
-                      <Text style={{color: '#FBD000', fontWeight: 'bold', fontSize: 13}}>Mario coin</Text>
-                      <Text style={{color: '#8A8A9E', fontSize: 10, marginTop: 2}}>Coins and bricks when changing stations</Text>
+                      <Text style={{color: '#FBD000', fontWeight: 'bold', fontSize: 13}}>Brick coin</Text>
+                      <Text style={{color: '#8A8A9E', fontSize: 10, marginTop: 2}}>Монета и кирпичи при смене станции</Text>
                     </View>
                     <Switch value={marioFx} onValueChange={(val) => { setMarioFx(val); AsyncStorage.setItem(MARIO_FX_KEY, JSON.stringify(val)); }} trackColor={{ false: '#161626', true: '#E52521' }} thumbColor="#FFF" />
                   </View>
                   <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'}}>
                     <View style={{flex: 1, paddingRight: 10}}>
                       <Text style={{color: '#00FF41', fontWeight: 'bold', fontSize: 13}}>Matrix type</Text>
-                      <Text style={{color: '#8A8A9E', fontSize: 10, marginTop: 2}}>Station name types in like a terminal</Text>
+                      <Text style={{color: '#8A8A9E', fontSize: 10, marginTop: 2}}>Название проявляется как терминал</Text>
                     </View>
                     <Switch value={matrixFx} onValueChange={(val) => { setMatrixFx(val); AsyncStorage.setItem(MATRIX_FX_KEY, JSON.stringify(val)); }} trackColor={{ false: '#161626', true: '#00FF41' }} thumbColor="#FFF" />
                   </View>
                   <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'}}>
                     <View style={{flex: 1, paddingRight: 10}}>
                       <Text style={{color: '#7AA2FF', fontWeight: 'bold', fontSize: 13}}>Night theme</Text>
-                      <Text style={{color: '#8A8A9E', fontSize: 10, marginTop: 2}}>After sunset, Midnight theme, back in the morning</Text>
+                      <Text style={{color: '#8A8A9E', fontSize: 10, marginTop: 2}}>После заката Midnight, утром назад</Text>
                     </View>
                     <Switch value={nightAuto} onValueChange={(val) => { setNightAuto(val); nightPickRef.current = false; AsyncStorage.setItem(NIGHT_AUTO_KEY, JSON.stringify(val)); }} trackColor={{ false: '#161626', true: '#7AA2FF' }} thumbColor="#FFF" />
                   </View>
                   <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'}}>
                     <View style={{flex: 1, paddingRight: 10}}>
                       <Text style={{color: '#7DD3FC', fontWeight: 'bold', fontSize: 13}}>Weather world</Text>
-                      <Text style={{color: '#8A8A9E', fontSize: 10, marginTop: 2}}>Rain, snow and fog in Drive</Text>
+                      <Text style={{color: '#8A8A9E', fontSize: 10, marginTop: 2}}>Дождь, снег и ветер в Drive</Text>
                     </View>
                     <Switch value={driveWeatherFx} onValueChange={(val) => { setDriveWeatherFx(val); AsyncStorage.setItem(DRIVE_WEATHER_FX_KEY, JSON.stringify(val)); }} trackColor={{ false: '#161626', true: '#38BDF8' }} thumbColor="#FFF" />
                   </View>
                 </View>
 
                 <View style={{backgroundColor: '#252538', padding: 12, borderRadius: 8, marginBottom: 10}}>
-                  <Text style={{color: '#FFF', fontWeight: 'bold', fontSize: 13, marginBottom: 8}}>Visualizer main</Text>
-                  <PickedRow picked={eqStyle}>
-                    {['winamp', 'cubes', 'rainbow', 'minecraft', 'bars', 'wave', 'halo', 'dots', 'ring', 'pulse', 'spiral', 'sparks', 'radar', 'synth', 'vinyl', 'off'].map(s => (
-                      <TouchableOpacity key={`main-${s}`} testID={s} style={[{paddingHorizontal: 12, paddingVertical: 8, borderRadius: 6, backgroundColor: '#1A1A24', borderWidth: 1, borderColor: 'transparent'}, eqStyle === s && {borderColor: '#000', backgroundColor: primaryNeon, borderWidth: 2}]} onPress={() => handleEqChange(s)}>
-                        <Text style={{color: eqStyle === s ? '#000' : '#8A8A9E', fontSize: 10, fontWeight: 'bold'}}>{s.toUpperCase()}</Text>
-                      </TouchableOpacity>
-                    ))}
-                  </PickedRow>
-                </View>
-
-                <View style={{backgroundColor: '#252538', padding: 12, borderRadius: 8, marginBottom: 10}}>
                   <Text style={{color: '#FFF', fontWeight: 'bold', fontSize: 13, marginBottom: 8}}>Drive Background</Text>
-                  <PickedRow picked={driveBg}>
-                     <TouchableOpacity style={[{paddingHorizontal: 12, paddingVertical: 8, borderRadius: 6, backgroundColor: '#1A1A24', borderWidth: 1, borderColor: 'transparent'}, driveBg === 'aurora' && {borderColor: '#000', backgroundColor: primaryNeon, borderWidth: 2}]} testID="aurora" onPress={() => {setDriveBg('aurora'); AsyncStorage.setItem(DRIVE_BG_KEY, 'aurora')}}>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{gap: 8}}>
+                     <TouchableOpacity style={[{paddingHorizontal: 12, paddingVertical: 8, borderRadius: 6, backgroundColor: '#1A1A24', borderWidth: 1, borderColor: 'transparent'}, driveBg === 'aurora' && {borderColor: '#000', backgroundColor: primaryNeon, borderWidth: 2}]} onPress={() => {setDriveBg('aurora'); AsyncStorage.setItem(DRIVE_BG_KEY, 'aurora')}}>
                         <Text style={{color: driveBg === 'aurora' ? '#000' : '#8A8A9E', fontSize: 10, fontWeight: 'bold'}}>AURORA</Text>
                      </TouchableOpacity>
-                     <TouchableOpacity style={[{paddingHorizontal: 12, paddingVertical: 8, borderRadius: 6, backgroundColor: '#1A1A24', borderWidth: 1, borderColor: 'transparent'}, driveBg === 'dust' && {borderColor: '#000', backgroundColor: primaryNeon, borderWidth: 2}]} testID="dust" onPress={() => {setDriveBg('dust'); AsyncStorage.setItem(DRIVE_BG_KEY, 'dust')}}>
+                     <TouchableOpacity style={[{paddingHorizontal: 12, paddingVertical: 8, borderRadius: 6, backgroundColor: '#1A1A24', borderWidth: 1, borderColor: 'transparent'}, driveBg === 'dust' && {borderColor: '#000', backgroundColor: primaryNeon, borderWidth: 2}]} onPress={() => {setDriveBg('dust'); AsyncStorage.setItem(DRIVE_BG_KEY, 'dust')}}>
                         <Text style={{color: driveBg === 'dust' ? '#000' : '#8A8A9E', fontSize: 10, fontWeight: 'bold'}}>BUBBLES</Text>
                      </TouchableOpacity>
-                     <TouchableOpacity style={[{paddingHorizontal: 12, paddingVertical: 8, borderRadius: 6, backgroundColor: '#1A1A24', borderWidth: 1, borderColor: 'transparent'}, driveBg === 'sunset' && {borderColor: '#000', backgroundColor: primaryNeon, borderWidth: 2}]} testID="sunset" onPress={() => {setDriveBg('sunset'); AsyncStorage.setItem(DRIVE_BG_KEY, 'sunset')}}>
+                     <TouchableOpacity style={[{paddingHorizontal: 12, paddingVertical: 8, borderRadius: 6, backgroundColor: '#1A1A24', borderWidth: 1, borderColor: 'transparent'}, driveBg === 'sunset' && {borderColor: '#000', backgroundColor: primaryNeon, borderWidth: 2}]} onPress={() => {setDriveBg('sunset'); AsyncStorage.setItem(DRIVE_BG_KEY, 'sunset')}}>
                         <Text style={{color: driveBg === 'sunset' ? '#000' : '#8A8A9E', fontSize: 10, fontWeight: 'bold'}}>SUNSET</Text>
                      </TouchableOpacity>
-                     <TouchableOpacity style={[{paddingHorizontal: 12, paddingVertical: 8, borderRadius: 6, backgroundColor: '#1A1A24', borderWidth: 1, borderColor: 'transparent'}, driveBg === 'pulse' && {borderColor: '#000', backgroundColor: primaryNeon, borderWidth: 2}]} testID="pulse" onPress={() => {setDriveBg('pulse'); AsyncStorage.setItem(DRIVE_BG_KEY, 'pulse')}}>
+                     <TouchableOpacity style={[{paddingHorizontal: 12, paddingVertical: 8, borderRadius: 6, backgroundColor: '#1A1A24', borderWidth: 1, borderColor: 'transparent'}, driveBg === 'pulse' && {borderColor: '#000', backgroundColor: primaryNeon, borderWidth: 2}]} onPress={() => {setDriveBg('pulse'); AsyncStorage.setItem(DRIVE_BG_KEY, 'pulse')}}>
                         <Text style={{color: driveBg === 'pulse' ? '#000' : '#8A8A9E', fontSize: 10, fontWeight: 'bold'}}>PULSE</Text>
                      </TouchableOpacity>
-                     <TouchableOpacity style={[{paddingHorizontal: 12, paddingVertical: 8, borderRadius: 6, backgroundColor: '#1A1A24', borderWidth: 1, borderColor: 'transparent'}, driveBg === 'grid' && {borderColor: '#000', backgroundColor: primaryNeon, borderWidth: 2}]} testID="grid" onPress={() => {setDriveBg('grid'); AsyncStorage.setItem(DRIVE_BG_KEY, 'grid')}}>
+                     <TouchableOpacity style={[{paddingHorizontal: 12, paddingVertical: 8, borderRadius: 6, backgroundColor: '#1A1A24', borderWidth: 1, borderColor: 'transparent'}, driveBg === 'grid' && {borderColor: '#000', backgroundColor: primaryNeon, borderWidth: 2}]} onPress={() => {setDriveBg('grid'); AsyncStorage.setItem(DRIVE_BG_KEY, 'grid')}}>
                         <Text style={{color: driveBg === 'grid' ? '#000' : '#8A8A9E', fontSize: 10, fontWeight: 'bold'}}>GRID</Text>
                      </TouchableOpacity>
-                     <TouchableOpacity style={[{paddingHorizontal: 12, paddingVertical: 8, borderRadius: 6, backgroundColor: '#1A1A24', borderWidth: 1, borderColor: 'transparent'}, driveBg === 'rain' && {borderColor: '#000', backgroundColor: primaryNeon, borderWidth: 2}]} testID="rain" onPress={() => {setDriveBg('rain'); AsyncStorage.setItem(DRIVE_BG_KEY, 'rain')}}>
+                     <TouchableOpacity style={[{paddingHorizontal: 12, paddingVertical: 8, borderRadius: 6, backgroundColor: '#1A1A24', borderWidth: 1, borderColor: 'transparent'}, driveBg === 'rain' && {borderColor: '#000', backgroundColor: primaryNeon, borderWidth: 2}]} onPress={() => {setDriveBg('rain'); AsyncStorage.setItem(DRIVE_BG_KEY, 'rain')}}>
                         <Text style={{color: driveBg === 'rain' ? '#000' : '#8A8A9E', fontSize: 10, fontWeight: 'bold'}}>CODE</Text>
                      </TouchableOpacity>
-                     <TouchableOpacity style={[{paddingHorizontal: 12, paddingVertical: 8, borderRadius: 6, backgroundColor: '#1A1A24', borderWidth: 1, borderColor: 'transparent'}, driveBg === 'stars' && {borderColor: '#000', backgroundColor: primaryNeon, borderWidth: 2}]} testID="stars" onPress={() => {setDriveBg('stars'); AsyncStorage.setItem(DRIVE_BG_KEY, 'stars')}}>
+                     <TouchableOpacity style={[{paddingHorizontal: 12, paddingVertical: 8, borderRadius: 6, backgroundColor: '#1A1A24', borderWidth: 1, borderColor: 'transparent'}, driveBg === 'stars' && {borderColor: '#000', backgroundColor: primaryNeon, borderWidth: 2}]} onPress={() => {setDriveBg('stars'); AsyncStorage.setItem(DRIVE_BG_KEY, 'stars')}}>
                         <Text style={{color: driveBg === 'stars' ? '#000' : '#8A8A9E', fontSize: 10, fontWeight: 'bold'}}>STARS</Text>
                      </TouchableOpacity>
-                     <TouchableOpacity style={[{paddingHorizontal: 12, paddingVertical: 8, borderRadius: 6, backgroundColor: '#1A1A24', borderWidth: 1, borderColor: 'transparent'}, driveBg === 'miami' && {borderColor: '#000', backgroundColor: primaryNeon, borderWidth: 2}]} testID="miami" onPress={() => {setDriveBg('miami'); AsyncStorage.setItem(DRIVE_BG_KEY, 'miami')}}>
+                     <TouchableOpacity style={[{paddingHorizontal: 12, paddingVertical: 8, borderRadius: 6, backgroundColor: '#1A1A24', borderWidth: 1, borderColor: 'transparent'}, driveBg === 'miami' && {borderColor: '#000', backgroundColor: primaryNeon, borderWidth: 2}]} onPress={() => {setDriveBg('miami'); AsyncStorage.setItem(DRIVE_BG_KEY, 'miami')}}>
                         <Text style={{color: driveBg === 'miami' ? '#000' : '#8A8A9E', fontSize: 10, fontWeight: 'bold'}}>NEON</Text>
                      </TouchableOpacity>
-                     <TouchableOpacity style={[{paddingHorizontal: 12, paddingVertical: 8, borderRadius: 6, backgroundColor: '#1A1A24', borderWidth: 1, borderColor: 'transparent'}, driveBg === 'embers' && {borderColor: '#000', backgroundColor: primaryNeon, borderWidth: 2}]} testID="embers" onPress={() => {setDriveBg('embers'); AsyncStorage.setItem(DRIVE_BG_KEY, 'embers')}}>
+                     <TouchableOpacity style={[{paddingHorizontal: 12, paddingVertical: 8, borderRadius: 6, backgroundColor: '#1A1A24', borderWidth: 1, borderColor: 'transparent'}, driveBg === 'embers' && {borderColor: '#000', backgroundColor: primaryNeon, borderWidth: 2}]} onPress={() => {setDriveBg('embers'); AsyncStorage.setItem(DRIVE_BG_KEY, 'embers')}}>
                         <Text style={{color: driveBg === 'embers' ? '#000' : '#8A8A9E', fontSize: 10, fontWeight: 'bold'}}>EMBERS</Text>
                      </TouchableOpacity>
-                     <TouchableOpacity style={[{paddingHorizontal: 12, paddingVertical: 8, borderRadius: 6, backgroundColor: '#1A1A24', borderWidth: 1, borderColor: 'transparent'}, driveBg === 'none' && {borderColor: '#000', backgroundColor: primaryNeon, borderWidth: 2}]} testID="none" onPress={() => {setDriveBg('none'); AsyncStorage.setItem(DRIVE_BG_KEY, 'none')}}>
+                     <TouchableOpacity style={[{paddingHorizontal: 12, paddingVertical: 8, borderRadius: 6, backgroundColor: '#1A1A24', borderWidth: 1, borderColor: 'transparent'}, driveBg === 'none' && {borderColor: '#000', backgroundColor: primaryNeon, borderWidth: 2}]} onPress={() => {setDriveBg('none'); AsyncStorage.setItem(DRIVE_BG_KEY, 'none')}}>
                         <Text style={{color: driveBg === 'none' ? '#000' : '#8A8A9E', fontSize: 10, fontWeight: 'bold'}}>NONE</Text>
                      </TouchableOpacity>
-                  </PickedRow>
+                  </ScrollView>
                 </View>
 
                 <View style={{backgroundColor: '#252538', padding: 12, borderRadius: 8, marginBottom: 10}}>
-                  <Text style={{color: '#FFF', fontWeight: 'bold', fontSize: 13, marginBottom: 8}}>Visualizer drive</Text>
-                  <PickedRow picked={driveEqStyle}>
-                    {['cubes', 'minecraft', 'bars', 'wave', 'halo', 'orb', 'dots', 'ring', 'pulse', 'spiral', 'sparks', 'radar', 'synth', 'vinyl', 'off'].map(s => (
-                      <TouchableOpacity key={`drive-${s}`} testID={s} style={[{paddingHorizontal: 12, paddingVertical: 8, borderRadius: 6, backgroundColor: '#1A1A24', borderWidth: 1, borderColor: 'transparent'}, driveEqStyle === s && {borderColor: '#000', backgroundColor: primaryNeon, borderWidth: 2}]} onPress={() => handleDriveEqChange(s)}>
-                        <Text style={{color: driveEqStyle === s ? '#000' : '#8A8A9E', fontSize: 10, fontWeight: 'bold'}}>{s.toUpperCase()}</Text>
+                  <Text style={{color: '#FFF', fontWeight: 'bold', fontSize: 13, marginBottom: 8}}>Visualizer (main + drive)</Text>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{gap: 8}}>
+                    {['cubes', 'minecraft', 'bars', 'wave', 'halo', 'orb', 'dots', 'ring', 'pulse', 'road', 'spiral', 'sparks', 'radar', 'synth', 'vinyl', 'off'].map(s => (
+                      <TouchableOpacity key={s} style={[{paddingHorizontal: 12, paddingVertical: 8, borderRadius: 6, backgroundColor: '#1A1A24', borderWidth: 1, borderColor: 'transparent'}, eqStyle === s && {borderColor: '#000', backgroundColor: primaryNeon, borderWidth: 2}]} onPress={() => handleEqChange(s)}>
+                        <Text style={{color: eqStyle === s ? '#000' : '#8A8A9E', fontSize: 10, fontWeight: 'bold'}}>{brandTitle(s)}</Text>
                       </TouchableOpacity>
                     ))}
-                  </PickedRow>
+                  </ScrollView>
                 </View>
 
                 <View style={{backgroundColor: '#252538', padding: 12, borderRadius: 8, marginBottom: 10}}>
                   <Text style={{color: '#FFF', fontWeight: 'bold', fontSize: 13, marginBottom: 8}}>Interactive Vinyl Style</Text>
-                  <PickedRow picked={vinylStyle}>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{gap: 8}}>
                     {['classic', 'gold', 'neon', 'off'].map(s => (
-                      <TouchableOpacity key={s} testID={s} style={[{paddingHorizontal: 12, paddingVertical: 8, borderRadius: 6, backgroundColor: '#1A1A24', borderWidth: 1, borderColor: 'transparent'}, vinylStyle === s && {borderColor: '#000', backgroundColor: primaryNeon, borderWidth: 2}]} onPress={() => handleVinylChange(s)}>
+                      <TouchableOpacity key={s} style={[{paddingHorizontal: 12, paddingVertical: 8, borderRadius: 6, backgroundColor: '#1A1A24', borderWidth: 1, borderColor: 'transparent'}, vinylStyle === s && {borderColor: '#000', backgroundColor: primaryNeon, borderWidth: 2}]} onPress={() => handleVinylChange(s)}>
                         <Text style={{color: vinylStyle === s ? '#000' : '#8A8A9E', fontSize: 10, fontWeight: 'bold'}}>{s.toUpperCase()}</Text>
                       </TouchableOpacity>
                     ))}
-                  </PickedRow>
+                  </ScrollView>
                 </View>
 
                 <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#252538', padding: 12, borderRadius: 8, marginBottom: 10}}>
@@ -4670,6 +3614,43 @@ function onYouTubeIframeAPIReady(){
                     <Text style={{color: '#8A8A9E', fontSize: 10, marginTop: 2}}>Keep playing when app is minimized</Text>
                   </View>
                   <Switch value={isBgPlayEnabled} onValueChange={toggleBgPlay} trackColor={{ false: '#161626', true: primaryNeon }} thumbColor="#FFF" />
+                </View>
+
+                <View style={{backgroundColor: '#252538', padding: 12, borderRadius: 8, marginBottom: 10}}>
+                  <Text style={{color: '#FFF', fontWeight: 'bold', fontSize: 13}}>Alarm station</Text>
+                  <Text style={{color: wakeStation ? primaryNeon : '#8A8A9E', fontSize: 11, marginTop: 4}} numberOfLines={1}>
+                    {wakeStation ? wakeStation.name : 'Not selected. Wake will do nothing.'}
+                  </Text>
+                  <TouchableOpacity
+                    style={{marginTop: 8, alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, backgroundColor: '#1A1A24', borderWidth: 1, borderColor: primaryNeon}}
+                    onPress={() => {
+                      if (!currentStation) return;
+                      const station = currentStation;
+                      setWakeStation(station);
+                      AsyncStorage.setItem(WAKE_STATION_KEY, JSON.stringify(station));
+                      setWakeChoices((prev) => {
+                        const next = [station, ...prev.filter((s) => s.id !== station.id)].slice(0, 12);
+                        AsyncStorage.setItem(WAKE_LIST_KEY, JSON.stringify(next));
+                        return next;
+                      });
+                    }}
+                  >
+                    <Text style={{color: primaryNeon, fontSize: 10, fontWeight: 'bold'}}>USE CURRENT</Text>
+                  </TouchableOpacity>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{gap: 8, marginTop: 8}}>
+                    {wakeChoices.map((station) => (
+                      <TouchableOpacity
+                        key={station.id}
+                        style={{paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, backgroundColor: '#1A1A24', borderWidth: 1, borderColor: wakeStation?.id === station.id ? primaryNeon : 'transparent'}}
+                        onPress={() => {
+                          setWakeStation(station);
+                          AsyncStorage.setItem(WAKE_STATION_KEY, JSON.stringify(station));
+                        }}
+                      >
+                        <Text style={{color: wakeStation?.id === station.id ? primaryNeon : '#8A8A9E', fontSize: 10, fontWeight: 'bold'}} numberOfLines={1}>{station.name}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
                 </View>
 
                 <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#252538', padding: 12, borderRadius: 8, marginBottom: 10}}>
@@ -4697,13 +3678,13 @@ function onYouTubeIframeAPIReady(){
                 </View>
                 <View style={{backgroundColor: '#252538', padding: 12, borderRadius: 8, marginBottom: 10}}>
                   <Text style={{color: '#FFF', fontWeight: 'bold', fontSize: 13, marginBottom: 8}}>Speedometer style</Text>
-                  <PickedRow picked={speedStyle}>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{gap: 8}}>
                     {(['gauge', 'digits', 'dial', 'arc', 'ticks', 'bar'] as const).map(s => (
-                      <TouchableOpacity key={s} testID={s} style={[{paddingHorizontal: 12, paddingVertical: 8, borderRadius: 6, backgroundColor: '#1A1A24', borderWidth: 1, borderColor: 'transparent'}, speedStyle === s && {borderColor: '#000', backgroundColor: primaryNeon, borderWidth: 2}]} onPress={() => { setSpeedStyle(s); AsyncStorage.setItem(SPEED_STYLE_KEY, s); }}>
+                      <TouchableOpacity key={s} style={[{paddingHorizontal: 12, paddingVertical: 8, borderRadius: 6, backgroundColor: '#1A1A24', borderWidth: 1, borderColor: 'transparent'}, speedStyle === s && {borderColor: '#000', backgroundColor: primaryNeon, borderWidth: 2}]} onPress={() => { setSpeedStyle(s); AsyncStorage.setItem(SPEED_STYLE_KEY, s); }}>
                         <Text style={{color: speedStyle === s ? '#000' : '#8A8A9E', fontSize: 10, fontWeight: 'bold'}}>{s.toUpperCase()}</Text>
                       </TouchableOpacity>
                     ))}
-                  </PickedRow>
+                  </ScrollView>
                 </View>
 
                 <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#252538', padding: 12, borderRadius: 8, marginBottom: 10}}>
@@ -4715,19 +3696,19 @@ function onYouTubeIframeAPIReady(){
                 </View>
                 <View style={{backgroundColor: '#252538', padding: 12, borderRadius: 8, marginBottom: 10}}>
                   <Text style={{color: '#FFF', fontWeight: 'bold', fontSize: 13, marginBottom: 8}}>Weather style</Text>
-                  <PickedRow picked={weatherStyle}>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{gap: 8}}>
                     {(['card', 'compact', 'hud'] as const).map(s => (
-                      <TouchableOpacity key={s} testID={s} style={[{paddingHorizontal: 12, paddingVertical: 8, borderRadius: 6, backgroundColor: '#1A1A24', borderWidth: 1, borderColor: 'transparent'}, weatherStyle === s && {borderColor: '#000', backgroundColor: primaryNeon, borderWidth: 2}]} onPress={() => { setWeatherStyle(s); AsyncStorage.setItem(WEATHER_STYLE_KEY, s); }}>
+                      <TouchableOpacity key={s} style={[{paddingHorizontal: 12, paddingVertical: 8, borderRadius: 6, backgroundColor: '#1A1A24', borderWidth: 1, borderColor: 'transparent'}, weatherStyle === s && {borderColor: '#000', backgroundColor: primaryNeon, borderWidth: 2}]} onPress={() => { setWeatherStyle(s); AsyncStorage.setItem(WEATHER_STYLE_KEY, s); }}>
                         <Text style={{color: weatherStyle === s ? '#000' : '#8A8A9E', fontSize: 10, fontWeight: 'bold'}}>{s.toUpperCase()}</Text>
                       </TouchableOpacity>
                     ))}
-                  </PickedRow>
+                  </ScrollView>
                 </View>
 
                 <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#252538', padding: 12, borderRadius: 8, marginBottom: 10}}>
                   <View style={{flex: 1, paddingRight: 10}}>
                     <Text style={{color: '#FFF', fontWeight: 'bold', fontSize: 13}}>Move weather</Text>
-                    <Text style={{color: '#8A8A9E', fontSize: 10, marginTop: 2}}>Drag the card left and right, inside the screen. Pinch the speedometer with two fingers.</Text>
+                    <Text style={{color: '#8A8A9E', fontSize: 10, marginTop: 2}}>Полоска сверху: слева и справа, внутри экрана. Спидометр — пальцем, двумя чуть больше</Text>
                   </View>
                   <Switch value={weatherMoveEnabled} onValueChange={(val) => { setWeatherMoveEnabled(val); AsyncStorage.setItem(WEATHER_MOVE_KEY, JSON.stringify(val)); }} trackColor={{ false: '#161626', true: primaryNeon }} thumbColor="#FFF" />
                 </View>
@@ -4741,13 +3722,6 @@ function onYouTubeIframeAPIReady(){
                   <Text style={styles.donateAddress} numberOfLines={1} ellipsizeMode="middle">A7xUS1Ai8ic6f8HfSUWq6tadvPsWpEXhd1NvDyJsJZi</Text>
                 </View>
                 
-                <TouchableOpacity
-                  style={[styles.powerOffBtn, { backgroundColor: primaryNeon, marginTop: 18, marginBottom: 0 }]}
-                  onPress={() => { Haptics.selectionAsync(); Linking.openURL('https://seeker-beat.netlify.app').catch(() => {}); }}
-                >
-                  <Text style={{ color: '#000', fontWeight: 'bold', fontSize: 16 }}>Support 📱</Text>
-                </TouchableOpacity>
-
                 <TouchableOpacity style={styles.powerOffBtn} onPress={handleForceExit}>
                   <Ionicons name="power" size={20} color="#FFF" style={{marginRight: 8}} />
                   <Text style={{color: '#FFF', fontWeight: 'bold', fontSize: 16}}>POWER OFF & EXIT</Text>
@@ -4771,7 +3745,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: 'transparent' }, 
   header: { paddingHorizontal: 16, paddingTop: 40, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: 'rgba(26, 26, 34, 0.6)' },
   
-  headerTopRow: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'flex-start', width: '100%', minHeight: 70 },
+  headerTopRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: '100%', minHeight: 75 },
   leftHeaderSection: { flex: 1, alignItems: 'flex-start', paddingLeft: 0, paddingRight: 10 },
   rightHeaderSection: { alignItems: 'flex-end', justifyContent: 'center' },
   
