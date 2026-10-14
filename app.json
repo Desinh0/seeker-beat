@@ -31,7 +31,7 @@
         "backgroundColor": "#0A0A0C"
       },
       "package": "com.anonymous.seekerbeat",
-      "versionCode": 21,
+      "versionCode": 11,
       "permissions": [
         "android.permission.WAKE_LOCK",
         "android.permission.FOREGROUND_SERVICE",
